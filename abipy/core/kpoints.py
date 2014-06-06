@@ -884,6 +884,7 @@ def returns_None_onfail(func):
             value = func(self)
             # This trick is needed because in many cases we define the netcdf variable
             # but we don't write its value. 
+	    #print("DEBUG:    type(value) :",type(value)) # check if this trick is portable!
             return value if not isinstance(value, MaskedArray) else None
         except self.Error:
             return None
