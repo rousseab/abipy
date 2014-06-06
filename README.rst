@@ -30,7 +30,11 @@ or::
     pip install abipy
 
 
-The 
+**Note**: You may need to install pymatgen before installing abipy as abipy depends on pymatgen 
+Besides, abipy required additional dependencies such as netcdf4 and wxpython for the graphical interface.
+Users who want to use the graphical interface are suggested to install the required python packages (wxpython)
+through one of the following python distributions::
+
     https://www.enthought.com/products/canopy/
 
 
@@ -79,8 +83,9 @@ The following packages are much easier to install with easy_install:
   #. pyYaml
   #. pyCifRW
   #. pyhull
+  #. PyDispatcher
 
-#for netcdf4 hdf see http://www.unidata.ucar.edu/software/netcdf/docs/build_default.html
+for netcdf4 and hdf see http://www.unidata.ucar.edu/software/netcdf/docs/build_default.html
 
 
 Optional dependencies
@@ -89,6 +94,7 @@ Optional dependencies
 Optional libraries that are required if you need certain features:
 
 1. wxPython - For the GUI 
+2. wxmplot
 
 Installing wxPython
 -------------------

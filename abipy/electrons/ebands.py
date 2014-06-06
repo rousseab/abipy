@@ -33,7 +33,7 @@ __all__ = [
 
 class Electron(collections.namedtuple("Electron", "spin kpoint band eig occ")):
     """
-    Sigle-particle state.
+    Single-particle state.
 
     .. Attributes:
 
@@ -197,7 +197,6 @@ class ElectronTransition(object):
     def is_direct(self):
         """True if direct transition."""
         return self.in_state.kpoint == self.out_state.kpoint
-
 
 
 class Smearing(AttrDict):
@@ -633,15 +632,21 @@ class ElectronBands(object):
 
         stream.flush()
 
-    def to_pymatgen(self):
-        """Return a pymatgen bandstructure object."""
+    def to_pymatgen(self, fermie=None):
+        """
+        Return a pymatgen bandstructure object.
+
+        fermie:
+            Fermi energy in eV. If None, self.efermi is used.
+        """
         from pymatgen.electronic_structure.core import Spin
         from pymatgen.electronic_structure.bandstructure import BandStructure, BandStructureSymmLine
 
         assert np.all(self.nband_sk == self.nband_sk[0,0])
 
         # TODO check this
-        efermi = self.fermie
+        if fermie is None:
+            fermie = self.fermie
 
         #eigenvals is a dict of energies for spin up and spin down
         #{Spin.up:[][],Spin.down:[][]}, the first index of the array
@@ -657,29 +662,29 @@ class ElectronBands(object):
 
         if self.kpoints.is_path:
             labels_dict = {k.name: k.frac_coords for k in self.kpoints if k.name is not None}
-            logger.info("calling pmg BandStructureSymmLine with labes_dict %s" % str(labels_dict))
-            return BandStructureSymmLine(self.kpoints.frac_coords, eigenvals, self.reciprocal_lattice, efermi, labels_dict,
-                                        coords_are_cartesian=False, 
-                                        structure=self.structure,
-                                        projections=None)
+            logger.info("calling pmg BandStructureSymmLine with labels_dict %s" % str(labels_dict))
+            return BandStructureSymmLine(self.kpoints.frac_coords, eigenvals, self.reciprocal_lattice, fermie, labels_dict,
+                                         coords_are_cartesian=False,
+                                         structure=self.structure,
+                                         projections=None)
 
         else:
             logger.info("Calling pmg BandStructure")
-            return BandStructure(self.kpoints.frac_coords, eigenvals, self.reciprocal_lattice, efermi, 
-                                labels_dict=None,
-                                coords_are_cartesian=False, 
-                                structure=self.structure, 
-                                projections=None)
+            return BandStructure(self.kpoints.frac_coords, eigenvals, self.reciprocal_lattice, fermie,
+                                 labels_dict=None,
+                                 coords_are_cartesian=False,
+                                 structure=self.structure,
+                                 projections=None)
 
     def _electron_state(self, spin, kpoint, band):
         """
         Build an instance of `Electron` from the spin, kpoint and band index"""
         kidx = self.kindex(kpoint)
         return Electron(spin=spin,
-                             kpoint=self.kpoints[kidx],
-                             band=band,
-                             eig=self.eigens[spin,kidx,band],
-                             occ=self.occfacts[spin,kidx,band])
+                        kpoint=self.kpoints[kidx],
+                        band=band,
+                        eig=self.eigens[spin,kidx,band],
+                        occ=self.occfacts[spin,kidx,band])
 
     #def from_scfrun(self):
     #    return self.iscf > 0
@@ -932,12 +937,11 @@ class ElectronBands(object):
         """
         ediff = numpy_op(self.eigens - other.eigens)
 
-        return StatParams(
-            mean=ediff.mean(axis=axis),
-            stdev=ediff.std(axis=axis),
-            min=ediff.min(axis=axis), 
-            max=ediff.max(axis=axis)
-            )
+        return StatParams(mean=ediff.mean(axis=axis),
+                          stdev=ediff.std(axis=axis),
+                          min=ediff.min(axis=axis),
+                          max=ediff.max(axis=axis)
+                          )
 
     def get_edos(self, method="gaussian", step=0.1, width=0.2):
         """
@@ -1070,7 +1074,7 @@ class ElectronBands(object):
         return Function1D(mesh, jdos)
 
     def plot_ejdosvc(self, vrange, crange, method="gaussian", step=0.1, width=0.2, cumulative=True,
-                    **kwargs):
+                     **kwargs):
         """
         Plot the decomposition of the joint-density of States (JDOS).
 
@@ -1195,7 +1199,7 @@ class ElectronBands(object):
 
         # Change the energies (NB: occupations and fermie are left unchanged).
         return ElectronBands(self.structure, self.kpoints, qp_energies, self.fermie, self.occfacts, self.nelect,
-            nband_sk=self.nband_sk, smearing=self.smearing, markers=self.markers)
+                             nband_sk=self.nband_sk, smearing=self.smearing, markers=self.markers)
 
     def plot(self, klabels=None, band_range=None, marker=None, width=None, **kwargs):
         """
@@ -1549,7 +1553,7 @@ class ElectronBands(object):
 
         #print(self.nband, ndivs+1)
         with open(filepath, "w") as fh:
-           bxsf_write(fh, self.structure, self.nsppol, self.nband, ndivs+1, emesh_sbk, self.fermie, unit="eV")
+            bxsf_write(fh, self.structure, self.nsppol, self.nband, ndivs+1, emesh_sbk, self.fermie, unit="eV")
 
         return Visualizer.from_file(filepath)
 

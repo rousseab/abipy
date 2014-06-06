@@ -21,8 +21,7 @@ __all__ = [
 ]
 
 
-class QPState(collections.namedtuple("QPState",
-                         "spin kpoint band e0 qpe qpe_diago vxcme sigxme sigcmee0 vUme ze0")):
+class QPState(collections.namedtuple("QPState", "spin kpoint band e0 qpe qpe_diago vxcme sigxme sigcmee0 vUme ze0")):
     """
     Quasi-particle result for given (spin, kpoint, band).
 
@@ -283,9 +282,10 @@ class QPList(list):
 
         return fig
 
-    def build_scissors(self, domains, bounds=None, plot=False, **kwargs):
+    def build_scissors(self, domains, bounds=None, plot=False, k=3, **kwargs):
         """
-        Construct a scissors operator by interpolating the QPState corrections as a function of E0.
+        Construct a scissors operator by interpolating the QPState corrections 
+        as function of the initial energies E0.
 
         Args:
             domains:
@@ -293,13 +293,29 @@ class QPList(list):
                 Domains should not overlap, cover e0mesh, and given in increasing order.
                 Holes are permitted but the interpolation will raise an exception if the
                 point is not in domains.
+            bounds:
+                Specify how to handle out-of-boundary conditions, i.e. how to treat
+                energies that do not fall inside one of the domains (not used at present)
             plot:
                 If true, use `matplolib` to compare input data  and fit.
+
+        Return:
+            instance of `Scissors`operator
+
+        Example:
+
+            # Build the scissors operator.
+            scissors = qplist_spin[0].build_scissors(domains)
+
+            # Compute list of interpolated QP energies.
+            qp_enes = [scissors.apply(e0) for e0 in ks_energies]
+
         """
+        # Sort QP corrections according to the initial KS energy.
         qps = self.sort_by_e0()
         e0mesh, qpcorrs = qps.get_e0mesh(), qps.get_qpeme0()
 
-        # Check domains
+        # Check domains.
         domains = np.atleast_2d(domains)
         dsize, dflat = domains.size, domains.ravel()
 
@@ -316,7 +332,7 @@ class QPList(list):
             if idx == dsize-1 and dflat[idx] < dflat[idx-1]:
                 raise ValueError("domain boundaries should be given in increasing order.")
 
-        # Create the sub_domains
+        # Create the sub_domains and the spline functions in each subdomain.
         func_list = []
         for dom in domains[:]:
             low, high = dom[0], dom[1]
@@ -325,8 +341,10 @@ class QPList(list):
             dom_e0 = e0mesh[start:stop+1]
             dom_corr = qpcorrs[start:stop+1]
 
+            # todo check if the number of non degenerate data points > k
+
             from scipy.interpolate import UnivariateSpline
-            f = UnivariateSpline(dom_e0, dom_corr, w=None, bbox=[None, None], k=3, s=None)
+            f = UnivariateSpline(dom_e0, dom_corr, w=None, bbox=[None, None], k=k, s=None)
             func_list.append(f)
 
         # Build the scissors operator.
@@ -341,6 +359,7 @@ class QPList(list):
             plt.legend()
             plt.show()
 
+        # Return the object.
         return sciss
 
     def merge(self, other, copy=False):
@@ -391,7 +410,7 @@ class Sigmaw(object):
 
         elif w == "a":
             f = self.spfunc
-            label  = kwargs.get("label", "$A(\omega)$")
+            label = kwargs.get("label", "$A(\omega)$")
             extend(f.plot_ax(ax, label=label))
             # Plot I(w)
             #ax2 = ax.twinx()
@@ -463,13 +482,14 @@ class Sigmaw(object):
 
         return fig
 
+
 def torange(obj):
     """
     Convert obj into a range. Accepts integer, slice object 
     or any object with an __iter__ method.
     Note that an integer is converted into range(int, int+1)
 
-    >>> torange(1) 
+    >>> torange(1)
     [1]
     >>> torange(slice(0,4,2))
     [0, 2]
@@ -604,7 +624,7 @@ class SIGRES_Plotter(collections.Iterable):
     def prepare_plot(self):
         """
         This method must be called before plotting data.
-        It tries to figure the name of paramenter we are converging 
+        It tries to figure the name of parameter we are converging
         by looking at the set of parameters used to compute the different SIGRES files.
         """
         param_list = self._get_param_list()
@@ -923,6 +943,7 @@ class SIGRES_File(AbinitNcFile, Has_Structure, Has_ElectronBands):
         return self.reader.read_qp(spin, kpoint, band)
 
     def get_qpgap(self, spin, kpoint):
+        k = self.reader.kpt2fileindex(kpoint)
         return self.gwgaps[spin, k]
 
     def get_sigmaw(self, spin, kpoint, band):
@@ -1039,8 +1060,10 @@ class SIGRES_File(AbinitNcFile, Has_Structure, Has_ElectronBands):
 #class SIGRES_Merger(object):
 #    """This object merges multiple SIGRES files."""
 
+
 class SIGRES_Reader(ETSF_Reader):
-    """This object provides method to read data from the SIGRES file produced ABINIT.
+    """
+    This object provides method to read data from the SIGRES file produced ABINIT.
     # See 70gw/m_sigma_results.F90
     # Name of the diagonal matrix elements stored in the file.
     # b1gw:b2gw,nkibz,nsppol*nsig_ab))
