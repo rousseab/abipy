@@ -7,20 +7,6 @@ import os
 import abipy.abilab as abilab
 import abipy.data as abidata  
 
-from abipy.data.runs import AbipyTest, MixinTest
-from abipy.data.runs.qptdm_workflow import *
-
-
-class PhononsFlowTest(AbipyTest, MixinTest):
-    """
-    Unit test for the flow defined in this module.  
-    Users who just want to learn how to use this flow can ignore this section.
-    """
-    def setUp(self):
-        super(PhononsFlowTest, self).setUp()
-        self.init_dirs()
-        self.flow = build_flow()
-
 
 def scf_ph_inputs():
     """
@@ -92,7 +78,8 @@ def build_flow(options):
         workdir = os.path.basename(__file__).replace(".py", "").replace("run_","flow_") 
 
     # Instantiate the TaskManager.
-    manager = abilab.TaskManager.from_user_config() if not options.manager else options.manager
+    manager = abilab.TaskManager.from_user_config() if not options.manager else \
+              abilab.TaskManager.from_file(options.manager)
 
     all_inps = scf_ph_inputs()
     scf_input, ph_inputs = all_inps[0], all_inps[1:]

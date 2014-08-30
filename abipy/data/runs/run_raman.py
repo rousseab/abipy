@@ -11,19 +11,6 @@ import numpy as np
 import abipy.abilab as abilab
 import abipy.data as data  
 
-from abipy.data.runs import AbipyTest, MixinTest
-
-
-class RamanFlowTest(AbipyTest, MixinTest):
-    """
-    Unit test for the flow defined in this module.  
-    Users who just want to learn how to use this flow can ignore this section.
-    """
-    def setUp(self):
-        super(RamanFlowTest, self).setUp()
-        self.init_dirs()
-        self.flow = build_flow(workdir=self.workdir)
-
 
 def build_flow(options):
     # Working directory (default is the name of the script with '.py' removed and "run_" replaced by "flow_")
@@ -32,7 +19,8 @@ def build_flow(options):
         workdir = os.path.basename(__file__).replace(".py", "").replace("run_","flow_") 
 
     # Instantiate the TaskManager.
-    manager = abilab.TaskManager.from_user_config() if not options.manager else options.manager
+    manager = abilab.TaskManager.from_user_config() if not options.manager else \
+              abilab.TaskManager.from_file(options.manager)
 
     # Initialize flow. Each workflow in the flow defines a complete BSE calculation for given eta.
     #if workdir is None:

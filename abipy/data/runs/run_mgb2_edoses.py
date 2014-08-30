@@ -9,20 +9,9 @@ import sys
 import abipy.data as data  
 import abipy.abilab as abilab
 
-from abipy.data.runs import AbipyTest, MixinTest
-
-class MgB2DosesFlowTest(AbipyTest, MixinTest):
-    """
-    Unit test for the flow defined in this module.  
-    Users who just want to learn how to use this flow can ignore this section.
-    """
-    def setUp(self):
-        super(MgB2DosesFlowTest, self).setUp()
-        self.init_dirs()
-        self.flow = build_flow()
-
 
 def make_scf_nscf_inputs(structure, pseudos):
+    """return GS, NSCF (band structure), and DOSes input."""
 
     inp = abilab.AbiInput(pseudos=pseudos, ndtset=5)
     inp.set_structure(structure)
@@ -69,13 +58,14 @@ def build_flow(options):
         workdir = os.path.basename(__file__).replace(".py", "").replace("run_","flow_") 
 
     # Instantiate the TaskManager.
-    manager = abilab.TaskManager.from_user_config() if not options.manager else options.manager
+    manager = abilab.TaskManager.from_user_config() if not options.manager else \
+              abilab.TaskManager.from_file(options.manager)
 
     pseudos = data.pseudos("12mg.pspnc", "5b.pspnc")
     structure = data.structure_from_ucell("MgB2")
 
     nval = structure.calc_nvalence(pseudos)
-    print(nval)
+    #print(nval)
 
     inputs = make_scf_nscf_inputs(structure, pseudos)
     scf_input, nscf_input, dos_inputs = inputs[0], inputs[1], inputs[2:]
