@@ -10,12 +10,19 @@ import os
 import argparse
 import time
 
+from pprint import pprint
 from pymatgen.io.abinitio.launcher import PyFlowScheduler, PyLauncher
 import abipy.abilab as abilab
 
 # Replace python open to detect open files.
 #from abipy.tools import open_hook
 #open_hook.install()
+
+
+def straceback():
+    """Returns a string with the traceback."""
+    import traceback
+    return traceback.format_exc()
 
 
 def str_examples():
@@ -87,13 +94,16 @@ def treat_flow(flow, options):
             try:
                 while True:
                     print(2*"\n" + time.asctime() + "\n")
+                    flow.check_status()
                     flow.show_status()
+                    if flow.all_ok: break
                     time.sleep(options.delay)
 
             except KeyboardInterrupt:
                 pass
         else:
             flow.show_status(verbose=options.verbose)
+
         #import pstats, cProfile
         #cProfile.runctx("flow.show_status()", globals(), locals(), "Profile.prof")
         #s = pstats.Stats("Profile.prof")
@@ -104,6 +114,24 @@ def treat_flow(flow, options):
 
     if options.command == "cancel":
         print("Number of jobs cancelled %d" % flow.cancel())
+
+    if options.command == "restart":
+        nlaunch, excs = 0, []
+        for task in flow.unconverged_tasks:
+            try:
+                fired = task.restart()
+                if fired: nlaunch += 1
+            except Exception:
+                excs.append(straceback())
+
+        print("Number of jobs restarted %d" % nlaunch)
+        if nlaunch:
+            # update database
+            flow.pickle_dump()
+
+        if excs:
+            print("Exceptions raised\n")
+            pprint(excs)
 
     if options.command == "tail":
         paths = [t.output_file.path for t in flow.iflat_tasks(status="S_RUN")]
@@ -181,8 +209,11 @@ def main():
     p_status.add_argument('-d', '--delay', default=0, type=int, help=("If 0, exit after the first analysis.\n" + 
                           "If > 0, enter an infinite loop and delay execution for the given number of seconds."))
 
-    # Subparser for scheduler command.
+    # Subparser for cancel command.
     p_cancel = subparsers.add_parser('cancel', help="Cancel the tasks in the queue.")
+
+    # Subparser for restart command.
+    p_restart = subparsers.add_parser('restart', help="Restart the tasks of the flow that are not converged.")
 
     # Subparser for open command.
     p_open = subparsers.add_parser('open', help="Open files in $EDITOR, type `abirun.py ... open --help` for help)")
@@ -215,9 +246,6 @@ Specify the files to open. Possible choices:\n
         options = parser.parse_args()
     except Exception as exc: 
         show_examples_and_exit(error_code=1)
-
-    if options.verbose:
-        print("options", options)
 
     # loglevel is bound to the string value obtained from the command line argument. 
     # Convert to upper case to allow the user to specify --loglevel=DEBUG or --loglevel=debug
@@ -264,5 +292,3 @@ Specify the files to open. Possible choices:\n
 
 if __name__ == "__main__":
     sys.exit(main())
-    #from abipy.tools.devtools import profile
-    #profile("main()", globals(), locals())
