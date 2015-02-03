@@ -13,7 +13,15 @@ import warnings
 import json
 import yaml
 import socket
-import paramiko
+try:
+   import paramiko
+except ImportError:
+   class Fake(object): pass
+   paramiko = Fake()
+   paramiko.SSHClient = object
+   paramiko.SFTPClient = object
+   paramiko.Channel = object
+   pass
 
 from six.moves import cStringIO
 from monty.string import is_string
@@ -85,7 +93,7 @@ def read_clusters(filepath=None):
     return clusters
 
 @six.add_metaclass(abc.ABCMeta)
-class Cluster(object):
+class RemoteCluster(object):
     """
     This object stores the basic parameters needed to establish SSH, SFTP connections with a remote machine. 
     It also provides helper functions for monitoring the resource manager.
@@ -94,7 +102,7 @@ class Cluster(object):
     by the concrete subclasses. Every subclass must define the class attribute `qtype` that 
     specifies the type of resource manager installed on the cluster.
 
-    A cluster has a remote working directory where we are going the generate and run Flows.
+    A RemoteCluster has a remote working directory where we are going the generate and run Flows.
     """
     def __init__(self, username, hostname, workdir, sshfs_mountpoint=None):
         """
@@ -446,7 +454,7 @@ class Cluster(object):
     #    """Return a string with the load of the cluster"""
 
 
-class SlurmCluster(Cluster):
+class SlurmCluster(RemoteCluster):
     """A cluster that uses Slurm to submit jobs."""
     qtype = "slurm"
 
@@ -467,7 +475,7 @@ class SlurmCluster(Cluster):
     #    return self.prefix_str(result.out) if prefix else result.out
 
 
-class SgeCluster(Cluster):
+class SgeCluster(RemoteCluster):
     """A cluster that uses SGE to submit jobs."""
     qtype = "sge"
 
@@ -1204,7 +1212,8 @@ class FlowsDatabase(collections.MutableMapping):
         print("Uploading %s to %s:%s" % (script, hostname, script_rpath))
         sftp = cluster.sftp
         sftp.put(localpath=script, remotepath=script_rpath, confirm=True)
-        sftp.chmod(script_rpath, mode=0700)
+        raise NotImplementedError("mode=0700")
+        #sftp.chmod(script_rpath, mode=0700)
         #sftp.close()
 
         # Start a shell on the remote host and run the script to build the flow.

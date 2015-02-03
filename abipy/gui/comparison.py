@@ -5,9 +5,9 @@ import collections
 import fnmatch
 import abipy.gui.awx as awx
 
-from abipy.electrons import ElectronBandsPlotter, ElectronDosPlotter, MDF_Plotter, SIGRES_Plotter
+from monty.string import list_strings
+from abipy.electrons import ElectronBandsPlotter, ElectronDosPlotter, MdfPlotter, SigresPlotter
 from abipy.gui.electronswx import ElectronDosDialog
-from abipy.tools import list_strings
 
 
 class FileCheckBoxPanel(awx.Panel):
@@ -191,7 +191,7 @@ class ComparisonFrame(awx.Frame):
                 dos_dialog.Destroy()
 
             elif choice == "mdf":
-                plotter = MDF_Plotter()
+                plotter = MdfPlotter()
 
                 for filepath in selected_files:
                     plotter.add_mdf_from_file(filepath, mdf_type="exc")
@@ -199,7 +199,7 @@ class ComparisonFrame(awx.Frame):
                 plotter.plot()
 
             elif choice == "sigres":
-                plotter = SIGRES_Plotter()
+                plotter = SigresPlotter()
 
                 plotter.add_files(selected_files)
 

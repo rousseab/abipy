@@ -7,11 +7,11 @@ import pytest
 import abipy.data as abidata
 import abipy.abilab as abilab
 
+from pymatgen.io.abinitio.calculations import bandstructure_work
 from abipy.core.testing import has_abinit
-from pymatgen.io.abinitio.calculations import bandstructure
 
 # Tests in this module require abinit >= 7.9.0
-pytestmark = pytest.mark.skipif(not has_abinit("7.9.0"), reason="Requires abinit >= 7.9.0")
+#pytestmark = pytest.mark.skipif(not has_abinit("7.9.0"), reason="Requires abinit >= 7.9.0")
 
 
 def make_scf_nscf_inputs(tvars, pp_paths, nstep=50):
@@ -64,7 +64,7 @@ def itest_unconverged_scf(fwp, tvars):
     scf_input, nscf_input = make_scf_nscf_inputs(tvars, pp_paths="14si.pspnc", nstep=1)
 
     # Build the flow and create the database.
-    flow = abilab.bandstructure_flow(fwp.workdir, fwp.manager, scf_input, nscf_input)
+    flow = abilab.bandstructure_flow(fwp.workdir, scf_input, nscf_input, manager=fwp.manager)
 
     flow.allocate()
     flow.build_and_pickle_dump()
@@ -109,6 +109,8 @@ def itest_unconverged_scf(fwp, tvars):
     flow.show_status()
     assert flow.all_ok
 
+    #assert flow.validate_json_schema()
+
 
 def itest_bandstructure_flow(fwp, tvars):
     """
@@ -120,8 +122,7 @@ def itest_bandstructure_flow(fwp, tvars):
     scf_input, nscf_input = make_scf_nscf_inputs(tvars, pp_paths="14si.pspnc")
 
     # Build the flow and create the database.
-    flow = abilab.bandstructure_flow(fwp.workdir, fwp.manager, scf_input, nscf_input)
-
+    flow = abilab.bandstructure_flow(fwp.workdir, scf_input, nscf_input, manager=fwp.manager)
     flow.build_and_pickle_dump()
 
     t0 = flow[0][0]
@@ -140,9 +141,9 @@ def itest_bandstructure_flow(fwp, tvars):
     # Flow properties and methods
     assert flow.num_tasks == 2
     assert not flow.all_ok
-    assert flow.ncpus_reserved == 0
-    assert flow.ncpus_allocated == 0
-    assert flow.ncpus_inuse == 0
+    assert flow.ncores_reserved == 0
+    assert flow.ncores_allocated == 0
+    assert flow.ncores_inuse == 0
     flow.check_dependencies()
     flow.show_status()
     flow.show_receivers()
@@ -194,6 +195,7 @@ def itest_bandstructure_flow(fwp, tvars):
     for task in flow.iflat_tasks():
         assert len(task.outdir.list_filepaths(wildcard="*GSR.nc")) == 1
 
+    #assert flow.validate_json_schema()
     #assert 0
 
 
@@ -207,8 +209,10 @@ def itest_bandstructure_schedflow(fwp, tvars):
     scf_input, nscf_input = make_scf_nscf_inputs(tvars, pp_paths="Si.GGA_PBE-JTH-paw.xml")
 
     # Build the flow and create the database.
-    flow = abilab.bandstructure_flow(fwp.workdir, fwp.manager, scf_input, nscf_input)
+    flow = abilab.bandstructure_flow(fwp.workdir, scf_input, nscf_input, manager=fwp.manager)
 
+    # Will remove output files (WFK)
+    flow.set_cleanup_exts()
     flow.build_and_pickle_dump()
 
     fwp.scheduler.add_flow(flow)
@@ -217,13 +221,19 @@ def itest_bandstructure_schedflow(fwp, tvars):
     with pytest.raises(fwp.scheduler.Error):
         fwp.scheduler.add_flow(flow)
 
-    fwp.scheduler.start()
-    assert fwp.scheduler.num_excs == 0
+    assert fwp.scheduler.start() 
+    assert not fwp.scheduler.exceptions
     assert fwp.scheduler.nlaunch == 2
 
     flow.show_status()
     assert flow.all_ok
     assert all(work.finalized for work in flow)
+
+    # The WFK files should have been removed because we called set_cleanup_exts
+    for task in flow[0]:
+        assert not task.outdir.has_abiext("WFK")
+
+    #assert flow.validate_json_schema()
     #assert 0
 
 
@@ -246,18 +256,18 @@ def itest_htc_bandstructure(fwp, tvars):
     )
 
     # Initialize the flow.
-    flow = abilab.AbinitFlow(workdir=fwp.workdir, manager=fwp.manager)
+    flow = abilab.Flow(workdir=fwp.workdir, manager=fwp.manager)
 
-    work = bandstructure(structure, abidata.pseudos("14si.pspnc"), scf_kppa, nscf_nband, ndivsm,
-                         spin_mode="unpolarized", smearing=None, dos_kppa=dos_kppa, **extra_abivars)
+    work = bandstructure_work(structure, abidata.pseudos("14si.pspnc"), scf_kppa, nscf_nband, ndivsm,
+                              spin_mode="unpolarized", smearing=None, dos_kppa=dos_kppa, **extra_abivars)
 
     flow.register_work(work)
     flow.allocate()
     flow.build_and_pickle_dump()
 
     fwp.scheduler.add_flow(flow)
-    fwp.scheduler.start()
-    assert fwp.scheduler.num_excs == 0
+    assert fwp.scheduler.start()
+    assert not fwp.scheduler.exceptions
     assert fwp.scheduler.nlaunch == 3
 
     flow.show_status()
@@ -266,23 +276,23 @@ def itest_htc_bandstructure(fwp, tvars):
 
     # Test if GSR files are produced and are readable.
     for i, task in enumerate(work):
-        gsr_path = task.outdir.list_filepaths(wildcard="*GSR.nc")[0]
-        gsr = abilab.abiopen(gsr_path)
-        print(gsr)
-        assert gsr.nsppol == 1
-        assert gsr.structure == structure
-        ebands = gsr.ebands
+        with task.open_gsr() as gsr:
+            print(gsr)
+            assert gsr.nsppol == 1
+            #assert gsr.structure == structure
+            ebands = gsr.ebands
 
-        # TODO: This does not work yet because GSR files do not contain
-        # enough info to understand if we have a path or a mesh.
-        #if i == 2:
-            # Bandstructure case
-            #assert ebands.has_bzpath
-            #with pytest.raises(ebands.Error):
-            #    ebands.get_edos()
+            # TODO: This does not work yet because GSR files do not contain
+            # enough info to understand if we have a path or a mesh.
+            #if i == 2:
+                # Bandstructure case
+                #assert ebands.has_bzpath
+                #with pytest.raises(ebands.Error):
+                #    ebands.get_edos()
 
-        if i == 3:
-            # DOS case
-            assert ebands.has_bzmesh
-            gsr.bands.get_edos()
+            if i == 3:
+                # DOS case
+                assert ebands.has_bzmesh
+                gsr.bands.get_edos()
 
+    #assert flow.validate_json_schema()

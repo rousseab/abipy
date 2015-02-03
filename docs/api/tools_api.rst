@@ -35,14 +35,6 @@ tools Package
    :undoc-members:
    :show-inheritance:
 
-:mod:`design_patterns` Module
------------------------------
-
-.. automodule:: abipy.tools.design_patterns
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
 :mod:`devtools` Module
 ----------------------
 
@@ -52,7 +44,7 @@ tools Package
    :show-inheritance:
 
 :mod:`generic` Module
-----------------------
+---------------------
 
 .. automodule:: abipy.tools.generic
    :members:
@@ -60,7 +52,7 @@ tools Package
    :show-inheritance:
 
 :mod:`iotools` Module
-----------------------
+---------------------
 
 .. automodule:: abipy.tools.iotools
    :members:
@@ -83,8 +75,16 @@ tools Package
    :undoc-members:
    :show-inheritance:
 
+:mod:`dataframe` Module
+-----------------------
+
+.. automodule:: abipy.tools.dataframe
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 :mod:`text` Module
-----------------------
+------------------
 
 .. automodule:: abipy.tools.text
    :members:
