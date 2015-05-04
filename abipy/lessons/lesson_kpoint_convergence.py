@@ -1,189 +1,305 @@
 #!/usr/bin/env python
 """
-\033[91m K-point convergence study for a semi-conductor and an introduction some of the basic concepts of the abipy library. \033[0m
+K-point convergence study for a semi-conductor
+===============================================
 
-\033[94m Background\033[0m
+Background
+----------
 
-This lesson deals with the basic k-point convergence study that is needed in any DFT calculation of a solid. In a DFT
-calculation of a solid the first Brillouin zone needs to be discritized to enable the integration of various quantities.
-Effectively the integrals are turned in to sums over k-points. For any result to be converged we need a k-point mesh
-that is dense enough, but at the same time as corse as possible to make for an efficient calculation. Various types
-of materials require in general different densities of the k-point meshes. In general metals need denser meshes than
-semiconductors. Your first investigation into a new compound will quit often be a k-point convergence study.
+This lesson deals with the basic k-point convergence study that is needed in any DFT calculation in periodic systems. 
+In such systems, indeed, the first Brillouin zone (BZ) needs to be discretized when performing the 
+integration of several important quantities e.g. the electronic density or the electronic energy.
+Integrals over the BZ are therefore turned into sums over discrete k-points and the k-mesh should 
+be dense enough, but at the same time as coarse as possible to make for an efficient calculation. 
+Your first investigation into a new compound will often be a k-point convergence study.
 
-\033[94m The related abinit variables\033[0m
+It is worth stressing that the density of the k-mesh needed to reach converged results is system-dependent.
+Note that metals need much denser k-meshes than semiconductors. 
+The presence of the Fermi surface, indeed, introduces discontinuities in the integrand functions and a 
+fictitious broadening of the occupation factors (tsmear) should be introduced in order to accelerate 
+the convergence of the integrals.
 
-\033[1m ngkpt \033[0m
-\033[1m shiftk \033[0m
+The related Abinit variables
+----------------------------
 
-\033[1m occopt \033[0m (see exercises)
-\033[1m tsmear \033[0m (see exercises)
-\033[1m kptopt \033[0m (see exercises)
+The variables used to specify the k-point sampling are:
 
-More info on the inputvariables and their use can be obtained using the following function:
+    * ngkpt
+    * shiftk
+    * kptopt (see exercises)
 
-\033[92m In []:\033[0m lesson.abinit_help(inputvariable)
+The variables used to specify the occupation scheme in metals are:
 
-This will print the official abinit description of this inputvariable.
-=======
-
-\033[94m The abipy flows of this lesson\033[0m
-
-When performed manually, a k-point convergence study would require the preparation of a series of input-files, running
-abinit for all the inputs and extracting and studying the quantity that is needed to be converged. This lesson shows
-how this process can be greatly facilitated by using python scripts in the abipy framework. We fill construct a single
-python object, a abipy flow, that contains all the information needed for the calculations but also provides methods
-for acually running abinit, inspecting the input and output, and analyzing the results.
-
-\033[94m The Course of this lesson\033[0m
-
-This lesson can be started in ipython by importing it:
-
-\033[92m In []:\033[0m from abipy.lessons import lesson_Si_kpoint_convergence as lesson
-
-The lesson is now imported in your ipython session in its own namespace 'lesson'. This object now gives us all the
-tools to follow this lesson. For instance the command:
-
-\033[92m In []:\033[0m lesson.help()
-
-displays this lessons information text, and can be recalled at any moment. The main object we use to pack
-(connected series of) calculations is a flow. This lesson provides a method that returns a flow designed to perform
-k-point convergence studies. This flow is made by the command:
-
-\033[92m In []:\033[0m flow = lesson.make_ngkpt_flow()
-
-'flow' is now an object that contains al the information needed to generate abinit input. In this case it is a special
-flow for a k-point convergence study and since we did not specify anything when generating the flow the example case
-of silicon is generated. Our flow however inherited from the abinit base flow so we have a lot of 'standard' methods
-available. For instance:
-
-\033[92m In []:\033[0m flow.show_inputs()
-
-This will display all the inputs as they will be 'given' to abinit.
-
-To start the the execution of calculations packed in this flow we an use the following command:
-
-\033[92m In []:\033[0m flow.make_scheduler().start()
-
-This starts the actual execution via a scheduler. The scheduler is a sort of daemon that starts to submit tasks that
-are ready to run. In our case al the tasks in the flow are independent so the first cycle of the scheduler directly
-submitted all of them. More complicated flows may have tasks that can only start using input from a previous task. We
-will encounter some of those later.
-
-The last step of analyzing the results can be done again in with a single command:
-
-\033[92m In []:\033[0m flow.analyze()
-
-This method of flow will open the necessary output files, retrieve the data, and produce a plot.
-
-Finally, once you are through with this lesson and exited ipython:
-
-\033[92m In []:\033[0m exit
-
-You can see that in the directory that you were working there is now a subdir were the calculation have been performed.
-Have a look at these folders and the files that are in them.
+    * occopt (see exercises)
+    * tsmear (see exercises)
 
 
-\033[93m Exercises \033[0m
-
-As an exercise you can now start this lesson again but in stead of performing the convergence study for silicon study
-the convergence for a metal. By using:
-
-\033[92m In []:\033[0m flow = lesson.make_ngkpt_flow(structure_file=lesson.abidata.cif_file('al.cif'), metal=True)
-
-you will generate a flow for aluminum. Actually, you can pass the path to any cif file to perform a convergence study
-on that material. Be careful however, aluminum is a metal and the default parameters for occopt and tsmear are for
-semiconductors. The keyword argument 'metal' fixes this. (you could also see what happens if you don't put this flag :-) )
-Look at the inputs to see what has been chnged and study the description of these inputvariables using the abinit_help
-function.
-
-If you have time left it is also a good exercise to open the python file that contains this lesson and study the
-implementations of the classes, methods and functions we used. You can get a copy of the file by using:
-
-\033[92m In []:\033[0m lesson.get_local_copy()
-
-Try to find what to change to change the set of k-point meshes that are used in the convergence study.
 """
-
 from __future__ import division, print_function
 
-import sys
+_ipython_lesson_ = """
+For a more detailed description of the variables, you are invited to consult the abinit documentation. 
+The full description, directly from the official abinit docs, is available in ipython with the command:
+
+    .. code-block:: python
+
+        print(lesson.docvar("inputvariable"))
+
+
+Description of the lesson
+-------------------------
+
+When performed manually, a k-point convergence study would require
+the preparation of several input files, running abinit for all
+the inputs and then extracting and studying the quantity under investigation.
+This lesson shows how this process can be facilitated thanks to abipy. 
+
+We will construct a single python object, an abipy flow, that contains all
+the information needed for the calculations.
+The flow also provides methods for running abinit, inspecting the input and the output
+as well tools for analyzing the final results.
+
+Executing the lesson
+--------------------
+
+This lesson can be started in ipython by importing it with:
+
+    .. code-block:: python
+
+        from abipy.lessons.lesson_kpoint_convergence import Lesson
+        lesson = Lesson()
+
+This `lesson` module gives us all the tools needed for the exercises.
+For instance the command:
+
+    .. code-block:: python
+
+        lesson
+
+displays this text and can be recalled at any moment. 
+
+The main object we use to connect different calculations is the AbiPy flow. 
+The lesson module provides a method that builds and returns a flow to perform k-point convergence studies. 
+The flow is constructed with the command:
+
+    .. code-block:: python
+
+        flow = lesson.make_ngkpt_flow()
+
+In this case make_ngkpt_flow builds a flow for silicon since no argument is passed to the function.
+
+Our flow has several useful methods. For instance:
+
+    .. code-block:: python
+
+        flow.show_inputs()
+
+displays all the inputs that will be 'passed' to abinit.
+
+To start the calculation inside the python shell, use the following command:
+
+    .. code-block:: python
+
+        flow.make_scheduler().start()
+
+The scheduler is a sort of daemon that submits all the tasks that are ready to run.
+In our case all the tasks in the flow are independent so the first
+cycle of the scheduler will submit all the tasks in the flow. 
+More complicated flows may have tasks that can start only when their `parents` are completed.
+We will encounter similar flows later on when discussing band structure calculations with AbiPy.
+
+Once the flow is completed, you can analyze the results with
+
+    .. code-block:: python
+
+        lesson.analyze(flow)
+
+This call reads the output files, retrieves the data, and produces a matplotlib plot.
+
+Finally, once you have completed this lesson you can exit ipython with:
+
+    .. code-block:: python
+
+        exit
+
+Note that in your working directory there is a new sub-directory (flow_lesson_Si_kpoint_convergence)
+containing all the input and output files produced by the flow. 
+Have a look at these folders and the files that are in them.
+Hint: you can use the `ls` command inside ipython to list files and directories.
+You can even open a file directly within ipython with the command: `!vi filename`
+
+
+
+Exercises
+---------
+
+As an exercise, you can start this lesson again but instead
+of performing the convergence study for silicon, you could perform a 
+similar analysis for a metal. 
+
+Use:
+
+    .. code-block:: python
+
+        flow = lesson.make_ngkpt_flow(structure_file=lesson.abidata.cif_file('al.cif'), metal=True)
+
+to generate a flow for aluminum. 
+
+Be careful however, aluminum is a metal and the default
+parameters for occopt and tsmear are for semiconductors. The
+keyword argument 'metal' fixes this. (you could also see what
+happens if you don't put this flag :-) ) Look at the inputs to
+see what has been changed and study the description of these
+variables using lesson.docvar.
+
+If you have time left, it is also a good exercise to open the
+python file that contains this lesson and study the internal implementation.
+You can get a copy of the file with:
+
+    .. code-block:: python
+
+        lesson.get_local_copy()
+
+Try to find what to change the set of k-point meshes used in the convergence studies.
+
+Next
+----
+
+A logical next lesson would be lesson_ecut_convergence
+"""
+
+_commandline_lesson_ = """
+For a more detailed description of the variables, you are invited to consult the abinit documentation. 
+The full description, directly from the official abinit docs, is available via the shell command:
+
+    .. code-block:: shell
+
+        abidoc.py man inputvariable
+
+that prints the official description of inputvariable.
+
+Description of the lesson
+-------------------------
+
+In the generation of this lesson by the python script all the input files have been generated automatically.
+The input files have been organized in a workdir "flow_lesson_Si_kpoint_convergence". 
+Inside this directory, you'll find a single work, w0, with four tasks, t0-t1-t2-t3. 
+Have a look at the input files, run.abi, of the four tasks to see what is different.
+
+You'll see that also the files file and the jobs submission script have been generated. 
+In the job scripts you'll see that the jobs are prepared to run just on the front end.
+
+You'll also see that the files file has been created as well.
+
+To perform the k-point convergence study execute, abinit with the four input sets.
+
+Once the calculations are ready, you'll see three important output files.
+
+    * run.out
+    * run.log
+    * run.err
+
+The main summary of the calculation can be found in the .out file, we'll go there soon :-). The .err file should be
+empty. If it's not something went wrong. If something went wrong read the .err. file. The .log file contains extensive
+information on you calculation that could help to find out what went wrong in the case of errors. Especially there are
+three types of messages that could help
+
+    * COMMENT
+    * WARNING
+    * ERROR
+
+In case of an error message abinit stopped the execution by itself, because of that error.
+
+Now the .out file. Some interesting keywords to look for:
+
+    * Symmetries
+    * Citation for XC functional:
+    * ETOT (the total energies during the electronic structure convergence)
+    * Eigenvalues
+    * Etotal (the total energy of an ionic step)
+
+Obviously there is much more.
+
+Collect the total energies of the four calculations and plot them as a function of the number of k-points in the
+calculation.
+
+Alternative to execution of the manual execution the calculations can also be executed using the abipy scheduler.
+
+    .. code-block:: shell
+
+        abirun.py flow_lesson_Si_kpoint_convergence scheduler
+
+"""
 import os
-import shutil
 import abipy.abilab as abilab
 import abipy.data as abidata
-from abipy.lessons.lesson_helper_functions import abinit_help, get_pseudos
+from abipy.lessons.core import BaseLesson, get_pseudos
 
 
-def help(stream=sys.stdout):
+def make_ngkpt_flow(ngkpt_list=[(2, 2, 2), (4, 4, 4), (6, 6, 6), (8, 8, 8)], structure_file=None, metal=False):
     """
-    Display the tutorial text.
+    A `factory function` (a function that returns an instance of the class defined above. If no specific system is
+    specified, structure_file=None, an flow for silicon in constructed and returned.
     """
-    stream.write(__doc__)
-
-
-def get_local_copy():
-    """
-    Copy this script to the current working dir to explore and edit
-    """
-    dst = os.path.basename(__file__[:-1])
-    if os.path.exists(dst):
-        raise RuntimeError("file %s already exists. Remove it before calling get_local_copy" % dst)
-    shutil.copyfile(__file__[:-1], dst)
-
-
-class NgkptFlow(abilab.Flow):
-    """
-    A flow class for the study of k-point convergence studies. It inherits from the base class abilab.Flow, and in
-    addion implements a method for analyzing specifically the k-point convergence data.
-    """
-    def analyze(self):
-        with abilab.abirobot(self, "GSR") as robot:
-            data = robot.get_dataframe()
-            #robot.ebands_plotter().plot()
-
-        import matplotlib.pyplot as plt
-        data.plot(x="nkpts", y="energy", title="Total energy vs nkpts", legend="Energy [eV]", style="b-o")
-        plt.show()
-
-
-def make_ngkpt_flow(structure_file=None, metal=False):
-    """
-    A 'factory function' (a function that returns an instance of the class defined above. If no specific system is
-    specified, structure_file=None, an example flow for silicon in constructed and returned.
-    """
-    ngkpt_list = [(2, 2, 2), (4, 4, 4), (6, 6, 6), (8, 8, 8)]
-
     # Defining the structure and adding the appropriate pseudo potentials
     if structure_file is None:
-        inp = abilab.AbiInput(pseudos=abidata.pseudos("14si.pspnc"), ndtset=len(ngkpt_list))
-        inp.set_structure(abidata.cif_file("si.cif"))
-        workdir = "lesson_Si_kpoint_convergence"
+        multi = abilab.MultiDataset(structure=abidata.cif_file("si.cif"),
+                                    pseudos=abidata.pseudos("14si.pspnc"), ndtset=len(ngkpt_list))
+        workdir = "flow_lesson_Si_kpoint_convergence"
     else:
         structure = abilab.Structure.from_file(structure_file)
-        pseudos = abidata.pseudos(get_pseudos(structure))
-        inp = abilab.AbiInput(pseudos=pseudos, ndtset=len(ngkpt_list))
-        inp.set_structure(structure)
-        workdir = "lesson_" + structure.composition.reduced_formula + "_kpoint_convergence"
+        pseudos = get_pseudos(structure)
+        multi = abilab.MultiDataset(structure, pseudos=pseudos, ndtset=len(ngkpt_list))
+        workdir = "flow_lesson_" + structure.composition.reduced_formula + "_kpoint_convergence"
+
+    # Add mnemonics to input file.
+    multi.set_mnemonics(True)
 
     # Global variables
-    inp.set_variables(ecut=10, tolvrs=1e-9)
+    multi.set_vars(ecut=10, tolvrs=1e-9)
 
     if metal:
-        inp.set_variables(occopt=7, tsmear=0.04)
+        multi.set_vars(occopt=7, tsmear=0.04)
 
     # Specific variables for the different calculations
     for i, ngkpt in enumerate(ngkpt_list):
-        inp[i+1].set_kmesh(ngkpt=ngkpt, shiftk=[0, 0, 0])
+        multi[i].set_kmesh(ngkpt=ngkpt, shiftk=[0, 0, 0])
 
-    return NgkptFlow.from_inputs(workdir=workdir, inputs=inp.split_datasets())
+    return abilab.Flow.from_inputs(workdir=workdir, inputs=multi.split_datasets())
+
+
+class Lesson(BaseLesson):
+
+    @property
+    def abipy_string(self):
+        return __doc__ + _ipython_lesson_
+
+    @property
+    def comline_string(self):
+        return __doc__ + _commandline_lesson_
+
+    @property
+    def pyfile(self):
+        return os.path.abspath(__file__).replace(".pyc", ".py")
+
+    @staticmethod
+    def make_ngkpt_flow(**kwargs):
+        return make_ngkpt_flow(**kwargs)
+
+    @staticmethod
+    def analyze(my_flow, **kwargs):
+        with abilab.abirobot(my_flow, "GSR") as robot:
+            data = robot.get_dataframe()
+        import matplotlib.pyplot as plt
+        ax = data.plot(x="nkpts", y="energy", title="Total energy vs nkpts", 
+                       legend=False, style="b-o")
+        ax.set_xlabel('Number of k-points')
+        ax.set_ylabel('Total Energy [eV]')
+        return plt.show(**kwargs)
 
 
 if __name__ == "__main__":
-    """
-    this section of code will be executed when this script file would be executed directly. It can be seen as an
-    example how the above method could be used in you onw scripts
-    """
-    flow = make_ngkpt_flow()
-    flow.make_scheduler().start()
-    flow.analyze()
+    l = Lesson()
+    flow = l.make_ngkpt_flow()
+    flow.build_and_pickle_dump()
+    l.setup()

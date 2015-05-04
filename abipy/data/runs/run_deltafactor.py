@@ -20,12 +20,8 @@ def build_flow(options):
     if not options.workdir:
         workdir = os.path.basename(__file__).replace(".py", "").replace("run_","flow_")
 
-    # Instantiate the TaskManager.
-    manager = abilab.TaskManager.from_user_config() if not options.manager else \
-              abilab.TaskManager.from_file(options.manager)
-
     # Initialize the flow.
-    flow = abilab.Flow(workdir=workdir, manager=manager)
+    flow = abilab.Flow(workdir=workdir, manager=options.manager)
 
     # Build the workflow for the computation of the deltafactor.
     # The calculation is done with the parameters and the cif files
@@ -48,13 +44,14 @@ def build_flow(options):
 
     # Register the workflow.
     flow.register_work(work)
-    return flow.allocate()
+    return flow
 
 
 @abilab.flow_main
 def main(options):
     flow = build_flow(options)
-    return flow.build_and_pickle_dump()
+    flow.build_and_pickle_dump()
+    return flow
 
 
 if __name__ == "__main__":

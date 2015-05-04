@@ -12,7 +12,6 @@ from abipy import abilab
 
 def build_flow(options):
     structure = abilab.Structure.from_file(abidata.cif_file("si.cif"))
-
     pseudos = abidata.pseudos("14si.pspnc")
 
     # Working directory (default is the name of the script with '.py' removed and "run_" replaced by "flow_")
@@ -20,12 +19,8 @@ def build_flow(options):
     if not options.workdir:
         workdir = os.path.basename(__file__).replace(".py", "").replace("run_","flow_") 
 
-    # Instantiate the TaskManager.
-    manager = abilab.TaskManager.from_user_config() if not options.manager else \
-              abilab.TaskManager.from_file(options.manager)
-
     # Initialize the flow.
-    flow = abilab.Flow(workdir, manager=manager) 
+    flow = abilab.Flow(workdir, manager=options.manager) 
 
     scf_kppa = 10
     nscf_nband = 10
@@ -46,13 +41,14 @@ def build_flow(options):
                                   scr_nband=None, **extra_abivars)
     
     flow.register_work(work)
-    return flow.allocate()
+    return flow
     
 
 @abilab.flow_main
 def main(options):
     flow = build_flow(options)
-    return flow.build_and_pickle_dump()
+    flow.build_and_pickle_dump()
+    return flow
 
 
 if __name__ == "__main__":

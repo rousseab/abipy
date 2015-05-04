@@ -28,18 +28,15 @@ def build_flow(options):
     if not options.workdir:
         workdir = os.path.basename(__file__).replace(".py", "").replace("run_","flow_") 
 
-    # Instantiate the TaskManager.
-    manager = abilab.TaskManager.from_user_config() if not options.manager else \
-              abilab.TaskManager.from_file(options.manager)
-
     # Initialize the flow.
-    flow = abilab.Flow(workdir=workdir, manager=manager)
+    flow = abilab.Flow(workdir=workdir, manager=options.manager)
 
-    work = bandstructure_work(structure, abidata.pseudos("14si.pspnc"), scf_kppa, nscf_nband, ndivsm, 
+    pseudos = abidata.pseudos("14si.pspnc")
+    work = bandstructure_work(structure,  pseudos, scf_kppa, nscf_nband, ndivsm, 
                               spin_mode="unpolarized", smearing=None, **extra_abivars)
 
     flow.register_work(work)
-    return flow.allocate()
+    return flow
 
     #dos_kppa = 10
     #bands = bandstructure_work("hello_dos", runmode, structure, pseudos, scf_kppa, nscf_nband,
@@ -51,7 +48,8 @@ def build_flow(options):
 @abilab.flow_main
 def main(options):
     flow = build_flow(options)
-    return flow.build_and_pickle_dump()
+    flow.build_and_pickle_dump()
+    return flow
 
 
 if __name__ == "__main__":

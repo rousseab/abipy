@@ -1,135 +1,218 @@
 #!/usr/bin/env python
 """
-\033[91m Basis set convergence study and some more on flows, works, and tasks. \033[0m
+Basis set convergence study and more info on flows, works, and tasks 
+====================================================================
 
-\033[94m Background\033[0m
+Background
+----------
 
-This lesson focuses on the convergence study of the completeness of the basis set used. In our case the basis consists
-of plane waves. Plane waves are inherently well suited to capture the periodic nature of a crystalline solid. The
-sharp features of the wavefunctions near the nucleus is however more problematic for plane waves. Describing these
-features would require very high frequency plane waves. In practice we will always use pseudo-potentials in stead of
-the actual ....
+This lesson focuses on the convergence study on the completeness of the plane wave (PW) basis set. 
+Plane waves are inherently well suited to capture the periodic nature of crystalline solids. 
+In addition, a PW basis set has the advantage that it introduces only one convergence parameter,
+the kinetic energy cutoff (ecut).
 
-Needless to say a different pseudo potential will require a different cutoff for the calculation to be converged. In
-general normconserving pseudos require a larger cut-off that ultra-soft pseudos and Projector Augmented Wave 'pseudos'
-require even smaller cutoffs. Moreover two pseudo's of the same type for the same element may requier different cutoffs
-as well. 'Harder' (having a smaller radius of the region in which the pseudization takes place) require larger cutoffs
-than 'softer' pseudo's. There are however many more properties of a pseudo tha determine the cutoff needed.
+The sharp features of the wavefunctions near the nucleus are however problematic for PWs. 
+Describing these features would require very high energy cutoff energies.
+For this reason PW codes use pseudo-potentials in order to facilitate the convergence of the results. 
+A pseudopotential replaces the singular coulomb potential of the nucleus and the 
+core electrons by something smoother inside the so-called pseudization region. 
+The pseudopotential connects smoothly to the real all-electron potential outside the pseudization region.
 
-\033[94m The related abinit variables\033[0m
+Note that different pseudo potentials usually require a different cutoff energy to be converged. 
+In general norm-conserving pseudos require a larger cut-off than ultra-soft pseudos 
+or Projector Augmented Wave 'pseudos'. 
+Moreover two pseudos of the same type for the same element may require different  cutoff energies as well. 
+Pseudos with small pseudization radius usually require larger cutoffs than pseudos 
+with large pseudization radius.
 
-\033[1m ecut \033[0m
+The related abinit variables
+----------------------------
 
-\033[94m The abipy flows in this lesson \033[0m
-
-\033[94m The course of this lesson \033[0m
-
-Start this lessen by importing it in a new namespace
-
-\033[92m In []:\033[0m from abipy.lessons import lesson_base1 as lesson
-
-As always you can reread this lessons text using the command:
-
-\033[92m In []:\033[0m lesson.help()
-
-To build the flow:
-
-\033[92m In []:\033[0m flow = lesson.make_ecut_flow()
-
-To print the input files
-
-\033[92m In []:\033[0m flow.show_inputs()
-
-In this lesson we take a closer look at the structure of a Flow. In general a flow is a container that contains 'works'.
-Works are (connected) series of abinit executions we call tasks. To show the works contained in a flow use the command:
-
-\033[92m In []:\033[0m flow.works()
-
-to show the status of a flow:
-
-\033[92m In []:\033[0m flow.show_status()
-
-There are many more properties and methods of a flow than may also come in handy. By typing [tab] in ipython after the
-period, you will be presented with all the option. Feel free to experiment a bit at this point. By adding a question-
-mark to the method or property ipython will show the information and description of it:
-
-\033[92m In []:\033[0m flow.open_files?
-
-Will explain what this method is supposed to do.
-
-Start the flow with the scheduler and wait for completion.
-
-\033[92m In []:\033[0m flow.make_scheduler().start()
-
-To analyze the results.
-
-\033[92m In []:\033[0m flow.analyze()
+    * ecut        (cutoff energy)
+    * pawecutdg   (additional variable for the double-grid used in PAW)
+    * ecutsm      (smoothing of the kinetic energy)
 
 """
 from __future__ import division, print_function
 
-import sys
+_ipython_lesson_ = """
+More info on the input variables and their use can be obtained using:
+
+    .. code-block:: python
+
+        print(lesson.docvar("inputvariable"))
+
+Description of the lesson
+-------------------------
+This lesson contains a factory function for a convergence study with respect to ecut.
+
+Executing the lesson
+--------------------
+
+Start this lesson by importing it:
+
+    .. code-block:: python
+
+        from abipy.lessons.lesson_ecut_convergence import Lesson
+        lesson = Lesson()
+
+As usual, you can reread this text using the command:
+
+    .. code-block:: python
+
+        lesson
+
+To build the flow:
+
+    .. code-block:: python
+
+        flow = lesson.make_ecut_flow()
+
+To print the input files
+
+    .. code-block:: python
+
+        flow.show_inputs()
+
+to show the status of a flow:
+
+    .. code-block:: python
+
+        flow.show_status()
+
+There are many more properties and methods of the flow than may also come in handy. 
+By typing [tab] in ipython after the period, you will be presented
+with all the options. Feel free to experiment a bit at this point. 
+In the ipython shell, one can get the description of the object by
+adding a question mark at the end of the statement:
+
+    .. code-block:: python
+
+        flow.show_status?
+
+Start the flow with the scheduler and wait for completion.
+
+    .. code-block:: python
+
+        flow.make_scheduler().start()
+
+To analyze the results.
+
+    .. code-block:: python
+
+        lesson.analyze(flow)
+
+Exercises
+---------
+
+Try to run the convergence study for Al.
+
+Get a copy of the python script used in this lesson like before and look at the `analyze` method. 
+Use the code in `analyze` to build your Pandas dataframe and use its method to produce convergence plots:
+
+Next
+----
+
+A logical next lesson would be lesson_relaxation
+
+"""
+
+_commandline_lesson_ = """
+The full description, directly from the abinit documentation, is available via the shell command:
+
+    .. code-block:: shell
+
+        abidoc.py man inputvariable
+
+that prints the official description of inputvariable.
+
+The course of this lesson
+-------------------------
+
+As in the previous lesson, executing the python script creates the folder structure with the required input files.
+
+One of the standard thing to look for to be converged in the total energy. We did that already in the previous lesson.
+This time have a look at some of the other important properties. Look for instance at the convergence rate of the
+forces, stress-tensor or the energies of the KS-orbitals.
+
+Exercises
+---------
+
+Edit the input files to run the same convergence study for a different k-point mesh. Best to start small.
+"""
+
 import os
-import shutil
 import abipy.abilab as abilab
 import abipy.data as abidata
-from abipy.lessons.lesson_helper_functions import abinit_help
+from abipy.lessons.core import BaseLesson
 
 
-def help(stream=sys.stdout):
+def make_ecut_flow(structure_file=None, ecut_list = (10, 12, 14, 16, 18)):
     """
-    Display the tutorial text.
+    Build and return a `Flow` to perform a convergence study wrt to ecut.
+
+    Args:
+        structure_file: (optional) file containing the crystalline structure.  
+            If None, crystalline silicon structure.
+        ecut_list: List of cutoff energies to be investigated.
     """
-    stream.write(__doc__)
-
-
-def get_local_copy():
-    """
-    Copy this script to the current working dir to explore and edit
-    """
-    dst = os.path.basename(__file__[:-1])
-    if os.path.exists(dst):
-        raise RuntimeError("file %s already exists. Remove it before calling get_local_copy" % dst)
-    shutil.copyfile(__file__[:-1], dst)
-
-
-class EcutFlow(abilab.Flow):
-    def analyze(self):
-        with abilab.abirobot(self, "GSR") as robot:
-            data = robot.get_dataframe()
-            #robot.ebands_plotter().plot()
-
-        import matplotlib.pyplot as plt
-        data.plot(x="ecut", y="energy", title="Total energy vs ecut", legend="Energy [eV]", style="b-o")
-        plt.show()
-
-
-def make_ecut_flow(structure_file=None):
-    ecut_list = [10, 12, 14, 16, 18]
-
-    #define the structure and add the nessesary pseudo's:
+    # Define the structure and add the necessary pseudos:
     if structure_file is None:
-        inp = abilab.AbiInput(pseudos=abidata.pseudos("14si.pspnc"), ndtset=len(ecut_list))
-        inp.set_structure(abidata.cif_file("si.cif"))
-        workdir = "lesson_Si_ecut_convergence"
+        multi = abilab.MultiDataset(structure=abidata.cif_file("si.cif"), 
+                                  pseudos=abidata.pseudos("14si.pspnc"), ndtset=len(ecut_list))
+        workdir = "flow_Si_ecut_convergence"
     else:
         structure = abilab.Structure.from_file(structure_file)
         pseudos = abilab.PseudoTable()  ## todo fix this
-        inp = abilab.AbiInput(pseudos=pseudos, ndtset=len(ecut_list))
-        inp.set_structure(structure)
-        workdir = "lesson_" + structure.composition.reduced_formula + "_ecut_convergence"
+        multi = abilab.MultiDataset(structure, pseudos=pseudos, ndtset=len(ecut_list))
+        workdir = "flow_" + structure.composition.reduced_formula + "_ecut_convergence"
+
+    # Add mnemonics to the input files.
+    multi.set_mnemonics(True)
 
     # Global variables
-    inp.set_variables(tolvrs=1e-9)
-    inp.set_kmesh(ngkpt=[4, 4, 4], shiftk=[0, 0, 0])
+    multi.set_vars(tolvrs=1e-9)
+    multi.set_kmesh(ngkpt=[4, 4, 4], shiftk=[0, 0, 0])
 
+    # Here we set the value of ecut used by the i-th task.
     for i, ecut in enumerate(ecut_list):
-        inp[i+1].set_variables(ecut=ecut)
+        multi[i].set_vars(ecut=ecut)
 
-    return EcutFlow.from_inputs(workdir=workdir, inputs=inp.split_datasets())
+    return abilab.Flow.from_inputs(workdir=workdir, inputs=multi.split_datasets())
+
+
+class Lesson(BaseLesson):
+
+    @property
+    def abipy_string(self):
+        return __doc__ + _ipython_lesson_
+
+    @property
+    def comline_string(self):
+        return __doc__ + _commandline_lesson_
+
+    @property
+    def pyfile(self):
+        return os.path.abspath(__file__).replace(".pyc", ".py")
+
+    @staticmethod
+    def make_ecut_flow(**kwargs):
+        return make_ecut_flow(**kwargs)
+
+    @staticmethod
+    def analyze(flow, **kwargs):
+        with abilab.abirobot(flow, "GSR") as robot:
+            data = robot.get_dataframe()
+
+        import matplotlib.pyplot as plt
+        ax = data.plot(x="ecut", y="energy", title="Total energy vs ecut", legend=False, style="b-o")
+        ax.set_xlabel('Ecut [Ha]')
+        ax.set_ylabel('Total Energy [eV]')
+        return plt.show(**kwargs)
 
 
 if __name__ == "__main__":
-    flow = make_ecut_flow()
-    flow.make_scheduler().start()
-    flow.analyze()
+    l = Lesson()
+    flow = l.make_ecut_flow()
+    flow.build_and_pickle_dump()
+    l.setup()

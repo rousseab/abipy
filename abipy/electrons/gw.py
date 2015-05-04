@@ -149,7 +149,7 @@ class QPState(namedtuple("QPState", "spin kpoint band e0 qpe qpe_diago vxcme sig
 
 
 class QPList(list):
-    """A list of quasiparticle corrections."""
+    """A list of quasiparticle corrections for a given spin."""
     def __init__(self, *args, **kwargs):
         super(QPList, self).__init__(*args)
         self.is_e0sorted = kwargs.get("is_e0sorted", False)
@@ -1378,7 +1378,7 @@ class SigresReader(ETSF_Reader):
 
         params = AttrDict()
         for pname in param_names:
-            params[pname] = self.read_value(pname)
+            params[pname] = self.read_value(pname, default=None)
         
         # Other quantities that might be subject to convergence studies.
         params["nkibz"] = len(self.ibz)

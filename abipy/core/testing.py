@@ -8,8 +8,10 @@ in a single location, so that test scripts can just import it and work right awa
 from __future__ import print_function, division, unicode_literals
 
 import subprocess
+import json
 
 from monty.os.path import which
+from monty.json import MontyDecoder
 from pymatgen.util.testing import PymatgenTest
 
 import logging
@@ -22,14 +24,15 @@ __all__ = [
 ]
 
 
-def has_abinit(version, cmp=">="):
+def has_abinit(version=None, cmp=">="):
     """
     Return True if abinit is in $PATH and version is cmp version.
-    False if condition is not fulfilled or the execution of `abinit -v` 
-    raised CalledProcessError 
+    False if condition is not fulfilled or the execution of `abinit -v`
+    raised CalledProcessError
     """
-    if which("abinit") is None:
-        return False
+    abinit = which("abinit") 
+    if abinit is None: return False
+    if version is None: return abinit is not None
 
     try:
         abiver = str(subprocess.check_output(["abinit", "-v"]))
@@ -49,6 +52,35 @@ def has_abinit(version, cmp=">="):
             "==": abiver.strip() == version.strip()}[cmp]
 
 
+def has_matplotlib():
+    try:
+        import matplotlib.pyplot as plt
+        return True
+    except ImportError:
+        return False
+
+
+def has_fireworks():
+    try:
+        import fireworks
+        return True
+    except ImportError:
+        return False
+
+
+def has_mongodb(host='localhost', port=27017, name='mongodb_test', username=None, password=None):
+    try:
+        from pymongo import MongoClient
+        connection = MongoClient(host, port, j=True)
+        db = connection[name]
+        if username:
+            db.authenticate(username, password)
+
+        return True
+    except:
+        return False
+
+
 class AbipyTest(PymatgenTest):
     """Extend TestCase with functions from numpy.testing.utils that support ndarrays."""
 
@@ -61,6 +93,10 @@ class AbipyTest(PymatgenTest):
     def has_abinit(version, cmp=">="):
         """Return True if abinit is in $PATH and version is cmp min_version."""
         return has_abinit(version, cmp=cmp)
+
+    def assertFwSerializable(self, obj):
+        self.assertTrue('_fw_name' in obj.to_dict())
+        self.assertDictEqual(obj.to_dict(), obj.__class__.from_dict(obj.to_dict()).to_dict())
 
 
 class AbipyFileTest(AbipyTest):

@@ -28,6 +28,29 @@ _PSEUDOS_DIRPATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "pseu
 
 _VARIABLES_DIRPATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "variables"))
 
+_MPDATA_DIRPATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "mpdata"))
+
+
+_SCRIPTS_DIRPATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "examples"))
+_SCRIPTS = None
+
+
+def pyscript(basename):
+    """Return the absolute name of one of the scripts in the `examples` directory from its basename."""
+
+    global _SCRIPTS 
+    if _SCRIPTS is None:
+        # Build mapping basename --> path.
+        from monty.os.path import find_exts
+        pypaths = find_exts(_SCRIPTS_DIRPATH, ".py", exclude_dirs="_*|.*")
+        _SCRIPTS = {}
+        for p in pypaths:
+            k = os.path.basename(p)
+            assert k not in _SCRIPTS
+            _SCRIPTS[k] = p
+
+    return _SCRIPTS[basename]
+
 
 def cif_file(filename):
     """Returns the absolute path of the CIF file in tests/data/cifs."""
@@ -113,6 +136,15 @@ def ncfiles_with_ext(ext):
             ncfiles.append(path)
 
     return ncfiles
+
+
+def mp_structures():
+    """ Returns a dictionary containg the structures stored in mpdata/mp_structures. """
+    import json
+    from monty.json import MontyDecoder
+
+    with open(os.path.join(_MPDATA_DIRPATH, 'mp_structures.json'), 'r') as f:
+        return json.load(f, cls=MontyDecoder)
 
 WFK_NCFILES = ncfiles_with_ext("WFK")
 
@@ -276,3 +308,7 @@ class AnaddbFilesGenerator(FilesGenerator):
             self.elph_basename,
             self.in_ddk,
         ])
+
+
+if __name__ == "__main__":
+    print(pyscript("plot_spectral_functions.py"))

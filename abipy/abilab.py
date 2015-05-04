@@ -8,20 +8,22 @@ from pymatgen.core.units import *
 from pymatgen.io.abinitio.eos import EOS
 from pymatgen.io.abinitio.pseudos import PseudoTable
 from pymatgen.io.abinitio.wrappers import Mrgscr, Mrgddb, Mrggkk
-#from pymatgen.io.abinitio.tasks import (TaskManager, ScfTask, NscfTask, RelaxTask, DDK_Task,
-#    PhononTask, G_Task, HaydockBseTask, OpticTask, AnaddbTask)
-#from pymatgen.io.abinitio.workflows import (Workflow, IterativeWorkflow, BandStructureWorkflow,
-#    RelaxWorkflow, DeltaFactorWorkflow, G0W0_Workflow, SigmaConvWorkflow, BSEMDF_Workflow,
-#    PhononWorkflow)
 from pymatgen.io.abinitio.tasks import *
 from pymatgen.io.abinitio.works import *
-from pymatgen.io.abinitio.flows import *
-from pymatgen.io.abinitio.launcher import PyFlowScheduler
+from pymatgen.io.abinitio.flows import (Flow, G0W0WithQptdmFlow, bandstructure_flow, 
+    g0w0_flow, phonon_flow, phonon_conv_flow)
+# Need new version of pymatgen.
+try:
+    from pymatgen.io.abinitio.flows import PhononFlow
+except ImportError:
+    pass
 
-#from abipy.tools.prettytable import PrettyTable
-from abipy.core.structure import Structure, StructureModifier
-from abipy.htc.input import AbiInput, LdauParams, LexxParams, input_gen, AnaddbInput
-from abipy.htc.robots import GsrRobot, SigresRobot, MdfRobot, abirobot
+from pymatgen.io.abinitio.launcher import PyFlowScheduler, BatchLauncher
+
+from abipy.core.structure import Lattice, Structure, StructureModifier
+from abipy.htc.input import AbiInput, LdauParams, LexxParams, input_gen
+from abipy.abio.robots import GsrRobot, SigresRobot, MdfRobot, DdbRobot, abirobot
+from abipy.abio.inputs import AbinitInput, MultiDataset, AnaddbInput, OpticInput
 from abipy.electrons import ElectronDosPlotter, ElectronBandsPlotter, SigresPlotter
 from abipy.electrons.gsr import GsrFile
 from abipy.electrons.gw import SigresFile, SigresPlotter 
@@ -29,13 +31,21 @@ from abipy.electrons.bse import MdfFile
 from abipy.electrons.scissors import ScissorsBuilder
 from abipy.dfpt import PhbstFile, PhononBands, PhdosFile, PhdosReader
 from abipy.dfpt.ddb import DdbFile
+from abipy.dynamics.hist import HistFile
 from abipy.core.mixins import AbinitInputFile, AbinitLogFile, AbinitOutputFile
 from abipy.waves import WfkFile
+from abipy.iotools import Visualizer
 
 # Tools for unit conversion
 import pymatgen.core.units as units
 FloatWithUnit = units.FloatWithUnit
 ArrayWithUnit = units.ArrayWithUnit
+
+# Documentation.
+from abipy.abio.abivars_db import get_abinit_variables, abinit_help, docvar
+
+# Utils for notebooks.
+from abipy.tools.notebooks import mpld3_enable_notebook
 
 
 def _straceback():
@@ -54,6 +64,7 @@ def abifile_subclass_from_filename(filename):
         "PHBST.nc": PhbstFile,
         "PHDOS.nc": PhdosFile,
         "DDB": DdbFile,
+        "HIST": HistFile,
     }
 
     # Abinit text files.
@@ -125,10 +136,8 @@ def abicheck():
         RuntimeError if not all the dependencies are fulfilled.
     """
     import os
-    # Executables must be in $PATH. Unfortunately we cannot
-    # test the version of the binaries.
-    # A possible approach would be to execute "exe -v"
-    # but supporting argv in Fortran is not trivial.
+    # Executables must be in $PATH. Unfortunately we cannot test the version of the binaries.
+    # A possible approach would be to execute "exe -v" but supporting argv in Fortran is not trivial.
     # Dynamic linking is tested by calling `ldd exe`
     executables = [
         "abinit",
@@ -188,8 +197,18 @@ def flow_main(main):
 
         parser.add_argument("-w", '--workdir', default="", type=str, help="Working directory of the flow.")
 
-        parser.add_argument("-m", '--manager', default="", type=str,
-                            help="YAML file with the parameters of the task manager")
+        parser.add_argument("-m", '--manager', default=None, 
+                            help="YAML file with the parameters of the task manager. " 
+                                 "Default None i.e. the manager is read from standard locations: "
+                                 "working directory first then ~/.abinit/abipy/manager.yml.")
+
+        parser.add_argument("-s", '--scheduler', action="store_true", default=False, 
+                            help="Run the flow with the scheduler")
+
+        parser.add_argument("-b", '--batch', action="store_true", default=False, 
+                            help="Run the flow in batch mode")
+
+        #parser.add_argument("-r", '--remove', action="store_true", default=False, help="Run the flow with the scheduler")
 
         parser.add_argument("--prof", action="store_true", default=False, help="Profile code wth cProfile ")
 
@@ -203,13 +222,32 @@ def flow_main(main):
             raise ValueError('Invalid log level: %s' % options.loglevel)
         logging.basicConfig(level=numeric_level)
 
+        # Istantiate the manager.
+        options.manager = TaskManager.as_manager(options.manager)
+
+        def execute():
+            """This is the function that performs the work depending on options."""
+            flow = main(options)
+
+            if options.scheduler:
+                flow.rmtree()
+                return flow.make_scheduler().start()
+
+            elif options.batch:
+                flow.rmtree()
+                flow.build_and_pickle_dump()
+                return flow.batch()
+
+            return 0
+
         if options.prof:
+            # Profile execute
             import pstats, cProfile
-            cProfile.runctx("main(options)", globals(), locals(), "Profile.prof")
+            cProfile.runctx("execute()", globals(), locals(), "Profile.prof")
             s = pstats.Stats("Profile.prof")
             s.strip_dirs().sort_stats("time").print_stats()
             return 0
         else:
-            return main(options)
+            return execute()
 
     return wrapper

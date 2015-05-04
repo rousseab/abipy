@@ -30,6 +30,7 @@ __all__ = [
     "ElectronBandsPlotter",
     "ElectronDosPlotter",
     "ElectronsReader",
+    # TODO Rename it, use camel case
     "ElectronDOS",
     "ElectronDOSPlotter",
 ]
@@ -627,16 +628,17 @@ class ElectronBands(object):
 
         if self.nsppol == 2: 
             eigenvals[Spin.down] = self.eigens[1,:,:].T.copy().tolist()
+        
+        # FIXME: is_path does not work since info is missing in the netcdf file.
+        #if self.kpoints.is_path:
+        #    labels_dict = {k.name: k.frac_coords for k in self.kpoints if k.name is not None}
+        #    logger.info("calling pmg BandStructureSymmLine with labels_dict %s" % str(labels_dict))
+        #    return BandStructureSymmLine(self.kpoints.frac_coords, eigenvals, self.reciprocal_lattice, fermie, labels_dict,
+        #                                 coords_are_cartesian=False, structure=self.structure, projections=None)
 
-        if self.kpoints.is_path:
-            labels_dict = {k.name: k.frac_coords for k in self.kpoints if k.name is not None}
-            logger.info("calling pmg BandStructureSymmLine with labels_dict %s" % str(labels_dict))
-            return BandStructureSymmLine(self.kpoints.frac_coords, eigenvals, self.reciprocal_lattice, fermie, labels_dict,
-                                         coords_are_cartesian=False, structure=self.structure, projections=None)
-
-        else:
-            logger.info("Calling pmg BandStructure")
-            return BandStructure(self.kpoints.frac_coords, eigenvals, self.reciprocal_lattice, fermie,
+        #else:
+        logger.info("Calling pmg BandStructure")
+        return BandStructure(self.kpoints.frac_coords, eigenvals, self.reciprocal_lattice, fermie,
                                  labels_dict=None, coords_are_cartesian=False, structure=self.structure, projections=None)
 
     def _electron_state(self, spin, kpoint, band):
@@ -680,8 +682,9 @@ class ElectronBands(object):
             return
 
         new_fermie = max(esb_levels)
-        if abs(new_fermie - self.fermie) > 0.2:
-            print("old_fermie %s, new fermie %s" % (self.fermie, new_fermie))
+
+        #if abs(new_fermie - self.fermie) > 0.2:
+        #    print("old_fermie %s, new fermie %s" % (self.fermie, new_fermie))
 
         # Use fermilevel as zero of energies.
         self.fermie = new_fermie
@@ -899,7 +902,7 @@ class ElectronBands(object):
         Compute the electronic DOS on a linear mesh.
 
         Args:
-            method: String defining the method
+            method: String defining the method for the computation of the DOS.
             step: Energy step (eV) of the linear mesh.
             width: Standard deviation (eV) of the gaussian.
 
@@ -1115,13 +1118,12 @@ class ElectronBands(object):
         Args:
             ax: matplotlib :class:`Axes` or None if a new figure should be created.
             klabels: dictionary whose keys are tuple with the reduced
-                     coordinates of the k-points. The values are the labels.
-                     e.g. klabels = { (0.0,0.0,0.0):"$\Gamma$", (0.5,0,0):"L"}.
+                coordinates of the k-points. The values are the labels. e.g. klabels = {(0.0,0.0,0.0): "$\Gamma$", (0.5,0,0):"L"}.
             band_range: Tuple specifying the minimum and maximum band to plot (default: all bands are plotted)
             marker: String defining the marker to plot. Accepts the syntax `markername:fact` where
-                    fact is a float used to scale the marker size.
-            width: String defining the width to plot. Accepts the syntax `widthname:fact` where
-                   fact is a float used to scale the stripe size.
+                fact is a float used to scale the marker size.
+            width: String defining the width to plot. Accepts the syntax widthname:fact where
+                fact is a float used to scale the stripe size.
 
         Returns:
             `matplotlib` figure
@@ -1177,10 +1179,10 @@ class ElectronBands(object):
 
         Args:
             klabels: Dictionary whose keys are tuple with the reduced coordinates of the k-points.
-                     The values are the labels. e.g. klabels = { (0.0,0.0,0.0):"$\Gamma$", (0.5,0,0):"L" }.
+                The values are the labels. e.g. ~klabels = { (0.0,0.0,0.0):"$\Gamma$", (0.5,0,0):"L" }`.
             band_range: Tuple specifying the minimum and maximum band to plot (default: all bands are plotted)
-            width: String defining the width to plot. accepts the syntax `widthname:fact` where
-                   fact is a float used to scale the stripe size.
+            width: String defining the width to plot. accepts the syntax widthname:fact where
+                fact is a float used to scale the stripe size.
 
         Returns:
             `matplotlib` figure
@@ -1213,7 +1215,7 @@ class ElectronBands(object):
             ax.set_title(title)
 
         ax.grid(True)
-        ax.set_xlabel('k-point')
+        #ax.set_xlabel('k-point')
         ax.set_ylabel('Energy [eV]')
 
         # FIXME:
@@ -1298,7 +1300,7 @@ class ElectronBands(object):
         Args:
             dos: An instance of :class:`ElectronDOS`.
             klabels: dictionary whose keys are tuple with the reduced coordinates of the k-points.
-                The values are the labels. e.g. klabels = {(0.0,0.0,0.0): "$\Gamma$", (0.5,0,0): "L"}.
+                The values are the labels. e.g. `klabels = {(0.0,0.0,0.0): "$\Gamma$", (0.5,0,0): "L"}`.
 
         Returns:
             `matplotlib` figure.
@@ -1337,6 +1339,23 @@ class ElectronBands(object):
 
         fig = plt.gcf()
         return fig
+
+    def widget_plot(self):
+        from IPython.html import widgets # Widget definitions
+        from IPython.display import display # Used to display widgets in the notebook
+ 
+        widget = widgets.FloatSliderWidget()
+
+        #def on_value_change(name, value):
+        def on_value_change():
+            #print(value)
+            #print(self)
+            from IPython.display import clear_output
+            clear_output()
+            self.get_edos().plot() #method=method, step=step, width=width)
+
+        widget.on_trait_change(on_value_change)
+        return widget
 
     def export_bxsf(self, filepath):
         """
@@ -1446,6 +1465,7 @@ class ElectronBandsPlotter(object):
     def __init__(self):
         self._bands_dict = OrderedDict()
         self._edoses_dict = OrderedDict()
+        self._markers = OrderedDict()
 
     @property
     def bands_dict(self):
@@ -1466,6 +1486,10 @@ class ElectronBandsPlotter(object):
     def edoses_list(self):
         """"List of :class:`ElectronDos`."""
         return list(self._edoses_dict.values())
+
+    @property
+    def markers(self):
+        return self._markers
 
     def iter_lineopt(self):
         """Generates style options for lines."""
@@ -1492,31 +1516,31 @@ class ElectronBandsPlotter(object):
             dos: :class:`ElectronDos` object.
         """
         if label in self._bands_dict:
-            raise ValueError("label %s is already in %s" % (label, self._bands_dict.keys()))
+            raise ValueError("label %s is already in %s" % (label, list(self._bands_dict.keys())))
 
         self._bands_dict[label] = bands
 
         if dos is not None:
             self.edoses_dict[label] = dos
 
-    def add_ebands_list(self, labels, bands_list, dos_list=None):
-        """
-        Add a list of Bands and DOSes.
+    #def add_ebands_list(self, labels, bands_list, dos_list=None):
+    #    """
+    #    Add a list of Bands and DOSes.
 
-        Args:
-            labels: List of labels.
-            bands_list: List of :class:`ElectronBands` objects.
-            dos_list: List of :class:`ElectronDos` objects.
-        """
-        assert len(labels) == len(bands_list)
+    #    Args:
+    #        labels: List of labels.
+    #        bands_list: List of :class:`ElectronBands` objects.
+    #        dos_list: List of :class:`ElectronDos` objects.
+    #    """
+    #    assert len(labels) == len(bands_list)
 
-        if dos_list is None:
-            for label, bands in zip(labels, bands_list):
-                self.add_ebands(label, bands)
-        else:
-            assert len(dos_list) == len(bands_list)
-            for label, bands, dos in zip(labels, bands_list, dos_list):
-                self.add_ebands(label, bands, dos=dos)
+    #    if dos_list is None:
+    #        for label, bands in zip(labels, bands_list):
+    #            self.add_ebands(label, bands)
+    #    else:
+    #        assert len(dos_list) == len(bands_list)
+    #        for label, bands, dos in zip(labels, bands_list, dos_list):
+    #            self.add_ebands(label, bands, dos=dos)
 
     def bands_statdiff(self, ref=0):
         """
@@ -1539,15 +1563,39 @@ class ElectronBandsPlotter(object):
 
         return "\n\n".join(text)
 
+    def set_marker(self, key, xys, extend=False):
+        """
+        Set an entry in the markers dictionary.
+
+        Args:
+            key: string used to label the set of markers.
+            xys: Three iterables x,y,s where x[i],y[i] gives the
+                 positions of the i-th markers in the plot and s[i] is the size of the marker.
+            extend: True if the values xys should be added to a pre-existing marker.
+        """
+        from abipy.tools.plotting_utils import Marker
+
+        if extend:
+            if key not in self._markers:
+                self._markers[key] = Marker(*xys)
+            else:
+                # Add xys to the previous marker set.
+                self._markers[key].extend(*xys)
+        
+        else:
+            if key in self._markers:
+                raise ValueError("Cannot overwrite key %s in data" % key)
+
+            self._markers[key] = Marker(*xys)
+
     @add_fig_kwargs
     def plot(self, klabels=None, **kwargs):
         """
         Plot the band structure and the DOS.
 
         Args:
-            klabels: dictionary whose keys are tuple with the reduced
-                     coordinates of the k-points. The values are the labels.
-                     e.g. klabels = {(0.0,0.0,0.0): "$\Gamma$", (0.5,0,0): "L"}.
+            klabels: dictionary whose keys are tuple with the reduced coordinates of the k-points. 
+                The values are the labels e.g. klabels = {(0.0,0.0,0.0): "$\Gamma$", (0.5,0,0): "L"}.
 
         ==============  ==============================================================
         kwargs          Meaning
@@ -1602,9 +1650,21 @@ class ElectronBandsPlotter(object):
 
             # Set ticks and labels, legends.
             if i == 0:
-                bands.decorate_ax(ax)
+                bands.decorate_ax(ax1)
 
-        ax.legend(lines, legends, loc='best', shadow=True)
+        if self.markers:
+            for key, markers in self.markers.items():
+                pos, neg = markers.posneg_marker()
+                # Use different symbols depending on the value of s.
+                # Cannot use negative s.
+                fact = 1
+                if pos:
+                    ax1.scatter(pos.x, pos.y, s=np.abs(pos.s)*fact, marker="^", label=key + " >0")
+
+                if neg:
+                    ax1.scatter(neg.x, neg.y, s=np.abs(neg.s)*fact, marker="v", label=key + " <0")
+
+        ax1.legend(lines, legends, loc='best', shadow=True)
 
         # Add DOSes
         if self.edoses_dict:
@@ -1614,57 +1674,57 @@ class ElectronBandsPlotter(object):
 
         return fig
 
-    def animate_files(self, **kwargs):
-        """
-        See http://visvis.googlecode.com/hg/vvmovie/images2gif.py for a (much better) approach
-        """
-        animator = FilesAnimator()
-        figures = OrderedDict()
+    #def animate_files(self, **kwargs):
+    #    """
+    #    See http://visvis.googlecode.com/hg/vvmovie/images2gif.py for a (much better) approach
+    #    """
+    #    animator = FilesAnimator()
+    #    figures = OrderedDict()
 
-        for label, bands in self.bands_dict.items():
-            if self.edoses_dict:
-                fig = bands.plot_with_edos(self.edoses_dict[label], show=False)
-            else:
-                fig = bands.plot(show=False)
+    #    for label, bands in self.bands_dict.items():
+    #        if self.edoses_dict:
+    #            fig = bands.plot_with_edos(self.edoses_dict[label], show=False)
+    #        else:
+    #            fig = bands.plot(show=False)
 
-            figures[label] = fig
+    #        figures[label] = fig
 
-        animator.add_figures(labels=figures.keys(), figure_list=figures.values())
-        return animator.animate(**kwargs)
+    #    animator.add_figures(labels=figures.keys(), figure_list=figures.values())
+    #    return animator.animate(**kwargs)
 
-    def animate(self, **kwargs):
-        """
-        See http://jakevdp.github.io/blog/2012/08/18/matplotlib-animation-tutorial/
-        """
-        import matplotlib.pyplot as plt
-        import matplotlib.animation as animation
+    #def animate(self, **kwargs):
+    #    """
+    #    See http://jakevdp.github.io/blog/2012/08/18/matplotlib-animation-tutorial/
+    #    """
+    #    import matplotlib.pyplot as plt
+    #    import matplotlib.animation as animation
 
-        fig, ax = plt.subplots()
-        bands = list(self.bands_dict.values())
+    #    fig, ax = plt.subplots()
+    #    bands = list(self.bands_dict.values())
 
-        plot_opts = {"color": "black", "linewidth": 2.0}
+    #    plot_opts = {"color": "black", "linewidth": 2.0}
 
-        def cbk_animate(i):
-            #line.set_ydata(np.sin(x+i/10.0))  # update the data
-            #print("in animate with %d" % i)
-            return bands[i].plot_ax(ax, spin=None, band=None, **plot_opts)
-            #lines = bands[i].plot_ax(ax, spin=None, band=None)
-            #line = lines[0]
-            #return line
+    #    def cbk_animate(i):
+    #        #line.set_ydata(np.sin(x+i/10.0))  # update the data
+    #        #print("in animate with %d" % i)
+    #        return bands[i].plot_ax(ax, spin=None, band=None, **plot_opts)
+    #        #lines = bands[i].plot_ax(ax, spin=None, band=None)
+    #        #line = lines[0]
+    #        #return line
 
-        # initialization function: plot the background of each frame
-        def init():
-            return bands[0].plot_ax(ax, spin=None, band=None, **plot_opts)
-            #line.set_data([], [])
-            #return line,
+    #    # initialization function: plot the background of each frame
+    #    def init():
+    #        return bands[0].plot_ax(ax, spin=None, band=None, **plot_opts)
+    #        #line.set_data([], [])
+    #        #return line,
 
-        anim = animation.FuncAnimation(fig, cbk_animate, frames=len(bands), interval=250, blit=True, init_func=init)
+    #    anim = animation.FuncAnimation(fig, cbk_animate, frames=len(bands), interval=250, blit=True, init_func=init)
 
-        #anim.save('im.mp4', metadata={'artist':'gmatteo'})
+    #    #anim.save('im.mp4', metadata={'artist':'gmatteo'})
 
-        if kwargs.get("show", True): plt.show()
+    #    if kwargs.get("show", True): plt.show()
 
-        return anim
+    #    return anim
 
 
 class ElectronDosPlotter(object):
@@ -1684,8 +1744,10 @@ class ElectronDosPlotter(object):
     #_LINE_STYLES = ["-",":","--","-.",]
     #_LINE_WIDTHS = [2,]
 
-    def __init__(self):
+    def __init__(self, *args):
         self._edoses_dict = OrderedDict()
+        for label, dos in args:
+            self.add_edos(label, dos)
 
     #def iter_lineopt(self):
     #    """Generates style options for lines."""
@@ -1704,7 +1766,7 @@ class ElectronDosPlotter(object):
 
     def add_edos_from_file(self, filepath, label=None, method="gaussian", step=0.1, width=0.2):
         """
-        Adds a dos for plotting. Reads data from a Netcd file
+        Adds a dos for plotting. Reads data from a Netcdf file
         """
         from abipy.abilab import abiopen
         with abiopen(filepath) as ncfile:
@@ -1728,22 +1790,21 @@ class ElectronDosPlotter(object):
         self._edoses_dict[label] = edos
 
     @add_fig_kwargs
-    def plot(self, **kwargs):
+    def plot(self, ax=None, **kwargs):
         """
         Plot the band structure and the DOS.
+
+        Args:
+            ax: matplotlib :class:`Axes` or None if a new figure should be created.
 
         Returns:
             `matplotlib` figure.
         """
-        import matplotlib.pyplot as plt
-        fig = plt.figure()
-        ax = fig.add_subplot(1, 1, 1)
+        ax, fig, plt = get_ax_fig_plt(ax)
 
         for (label, dos) in self.edoses_dict.items():
             # Use relative paths if label is a file.
-            if os.path.isfile(label):
-                label = os.path.relpath(label)
-
+            if os.path.isfile(label): label = os.path.relpath(label)
             dos.plot_ax(ax, label=label)
 
         ax.grid(True)
@@ -1822,8 +1883,8 @@ class ElectronsReader(ETSF_Reader, KpointsReaderMixin):
             scheme = None
 
         # FIXME there's a problem in smearing_scheme
-        if scheme is None:
-            logger.warning("warning: scheme is None, occopt %s" % occopt)
+        #if scheme is None:
+        #    logger.warning("warning: scheme is None, occopt %s" % occopt)
 
         return Smearing(
             scheme=scheme,
@@ -2062,7 +2123,7 @@ class ElectronDOS(object):
 
 class ElectronDOSPlotter(object):
     """
-    Class for plotting DOSes.
+    Class for plotting multiple electron DOSes.
     """
     def __init__(self):
         self._doses = OrderedDict()
@@ -2072,8 +2133,8 @@ class ElectronDOSPlotter(object):
         Adds a DOS for plotting.
 
         Args:
-            label: label for the MDF. Must be unique.
-            dos: :class:`MacroscopicDielectricFunction` object.
+            label: label for the DOS. Must be unique.
+            dos: :class:`ElectroDos` object.
         """
         if label in self._doses:
             raise ValueError("label %s is already in %s" % (label, self._doses.keys()))
@@ -2097,9 +2158,12 @@ class ElectronDOSPlotter(object):
             self.add_dos(label, dos_dict[label])
 
     @add_fig_kwargs
-    def plot(self, *args, **kwargs):
+    def plot(self, ax=None, *args, **kwargs):
         """
         Get a matplotlib plot showing the DOSes.
+
+        Args:
+            ax: matplotlib :class:`Axes` or None if a new figure should be created.
 
         ==============  ==============================================================
         kwargs          Meaning
@@ -2108,10 +2172,7 @@ class ElectronDOSPlotter(object):
         ylim            y-axis limits.  None (default) for automatic determination.
         ==============  ==============================================================
         """
-        import matplotlib.pyplot as plt
-        fig = plt.figure()
-
-        ax = fig.add_subplot(1,1,1)
+        ax, fig, plt = get_ax_fig_plt(ax)
         ax.grid(True)
 
         xlim = kwargs.pop("xlim", None)
@@ -2131,6 +2192,6 @@ class ElectronDOSPlotter(object):
             legends.append("DOS: %s" % label)
 
         # Set legends.
-        ax.legend(lines, legends, loc='upper right', shadow=True)
+        ax.legend(lines, legends, loc='best', shadow=True)
 
         return fig

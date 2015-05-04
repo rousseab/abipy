@@ -6,7 +6,7 @@ import abipy.data as abidata
 import abipy.abilab as abilab
 
 from pymatgen.io.abinitio.calculations import g0w0_with_ppmodel_work
-from abipy.core.testing import has_abinit
+from abipy.core.testing import has_abinit, has_matplotlib
 
 # Tests in this module require abinit >= 7.9.0
 #pytestmark = pytest.mark.skipif(not has_abinit("7.9.0"), reason="Requires abinit >= 7.9.0")
@@ -19,8 +19,8 @@ def make_g0w0_inputs(ngkpt, tvars):
     Returns:
         gs_input, nscf_input, scr_input, sigma_input
     """
-    inp = abilab.AbiInput(pseudos=abidata.pseudos("14si.pspnc"), ndtset=4)
-    inp.set_structure_from_file(abidata.cif_file("si.cif"))
+    multi = abilab.MultiDataset(structure=abidata.cif_file("si.cif"), 
+                                pseudos=abidata.pseudos("14si.pspnc"), ndtset=4)
 
     # This grid is the most economical, but does not contain the Gamma point.
     scf_kmesh = dict(
@@ -44,30 +44,27 @@ def make_g0w0_inputs(ngkpt, tvars):
     # Global variables. gw_kmesh is used in all datasets except DATASET 1.
     ecut = 4
 
-    inp.set_variables(
+    multi.set_vars(
         ecut=ecut,
-        pawecutdg=ecut*2 if inp.pseudos.allpaw else None,
+        pawecutdg=ecut*2 if multi.ispaw else None,
         istwfk="*1",
         paral_kgb=tvars.paral_kgb,
         gwpara=2,
     )
-    inp.set_kmesh(**gw_kmesh)
+    multi.set_kmesh(**gw_kmesh)
 
     # Dataset 1 (GS run)
-    inp[1].set_kmesh(**scf_kmesh)
-    inp[1].set_variables(
-        tolvrs=1e-6,
-        nband=4)
+    multi[0].set_kmesh(**scf_kmesh)
+    multi[0].set_vars(tolvrs=1e-6, nband=4)
 
     # Dataset 2 (NSCF run)
-    # Here we select the second dataset directly with the syntax inp[2]
-    inp[2].set_variables(iscf=-2,
-                         tolwfr=1e-10,
-                         nband=10,
-                         nbdbuf=2)
+    multi[1].set_vars(iscf=-2,
+                      tolwfr=1e-10,
+                      nband=10,
+                      nbdbuf=2)
 
     # Dataset3: Calculation of the screening.
-    inp[3].set_variables(
+    multi[2].set_vars(
         optdriver=3,
         nband=8,
         ecutwfn=ecut,
@@ -86,21 +83,20 @@ def make_g0w0_inputs(ngkpt, tvars):
           0.00000000E+00,  0.00000000E+00,  0.00000000E+00,
       ]
 
-    inp[4].set_variables(
+    multi[3].set_vars(
             optdriver=4,
             nband=10,
             ecutwfn=ecut,
             ecuteps=2.0,
             ecutsigx=2.0,
             symsigma=1,
-            #nkptgw=0,
             #gw_qprange=0,
     )
 
     bdgw = [4, 5]
-    inp[4].set_kptgw(kptgw, bdgw)
+    multi[3].set_kptgw(kptgw, bdgw)
 
-    return inp.split_datasets()
+    return multi.split_datasets()
 
 
 def itest_g0w0_flow(fwp, tvars):
@@ -109,7 +105,7 @@ def itest_g0w0_flow(fwp, tvars):
 
     flow = abilab.g0w0_flow(fwp.workdir, scf, nscf, scr, sig, manager=fwp.manager)
     # Will remove output files at run-time.
-    flow.set_cleanup_exts()
+    flow.set_garbage_collector()
     flow.build_and_pickle_dump()
 
     for task in flow[0]:
@@ -125,8 +121,8 @@ def itest_g0w0_flow(fwp, tvars):
     scr_task = flow[0][2]
     sig_task = flow[0][3]
 
-    # Test set_cleanup_exts
-    # The WFK|SCR file should have been removed because we call set_cleanup_exts
+    # Test garbage)_collector
+    # The WFK|SCR file should have been removed because we call set_garbage_collector
     assert not scf_task.outdir.has_abiext("WFK")
     assert not nscf_task.outdir.has_abiext("WFK")
     assert not scr_task.outdir.has_abiext("SCR")
@@ -138,6 +134,14 @@ def itest_g0w0_flow(fwp, tvars):
     with abilab.abiopen(sigfile) as sigres:
         assert sigres.nsppol == 1
 
+    # Test SigmaTask inspect method
+    #if has_matplotlib
+        #sig_task.inspect(show=False)
+
+    # Test get_results for Sigma and Scr
+    scr_task.get_results()
+    sig_task.get_results()
+
     # TODO Add more tests
     #assert flow.validate_json_schema()
 
@@ -147,6 +151,11 @@ def itest_g0w0qptdm_flow(fwp, tvars):
     scf, nscf, scr, sig = make_g0w0_inputs(ngkpt=[2, 2, 2], tvars=tvars)
 
     flow = abilab.G0W0WithQptdmFlow(fwp.workdir, scf, nscf, scr, sig, manager=fwp.manager)
+
+    # Enable garbage collector at the flow level.
+    # Note that here we have tp use this policy because tasks are created dynamically
+    #flow.set_garbage_collector(policy="task")
+    flow.set_garbage_collector(policy="flow")
 
     assert len(flow) == 3
     bands_work = flow[0]
@@ -162,10 +171,6 @@ def itest_g0w0qptdm_flow(fwp, tvars):
         assert not sigma_task.depends_on(bands_work.scf_task)
         assert sigma_task.depends_on(scr_work)
 
-    # FIXME this does not work yet because tasks are created dynamically
-    # Will remove output files at run-time.
-    #flow.set_cleanup_exts()
-
     flow.build_and_pickle_dump()
     flow.show_dependencies()
     # This call is needed to connect the node and enable
@@ -174,15 +179,15 @@ def itest_g0w0qptdm_flow(fwp, tvars):
 
     # Run the flow.
     fwp.scheduler.add_flow(flow)
-    assert fwp.scheduler.start() 
+    assert fwp.scheduler.start() == 0 
     assert not fwp.scheduler.exceptions
 
     flow.show_status()
     assert all(work.finalized for work in flow)
     assert flow.all_ok
 
-    # Test set_cleanup_exts
-    # The WFK|SCR file should have been removed because we call set_cleanup_exts
+    # Test set_garbage_collector
+    # The WFK|SCR file should have been removed because we call set_garbage_collector
     #assert not scf_task.outdir.has_abiext("WFK")
     #assert not nscf_task.outdir.has_abiext("WFK")
     #assert not scr_task.outdir.has_abiext("SCR")
@@ -192,6 +197,8 @@ def itest_g0w0qptdm_flow(fwp, tvars):
     assert scr_work.outdir.has_abiext("SCR")
 
     #assert flow.validate_json_schema()
+
+    flow.finalize()
 
 
 def itest_htc_g0w0(fwp, tvars):
@@ -226,7 +233,7 @@ def itest_htc_g0w0(fwp, tvars):
 
     #flow.build_and_pickle_dump()
     fwp.scheduler.add_flow(flow)
-    assert fwp.scheduler.start()
+    assert fwp.scheduler.start() == 0
     assert not fwp.scheduler.exceptions
     assert fwp.scheduler.nlaunch == 4
 
@@ -240,6 +247,7 @@ def itest_htc_g0w0(fwp, tvars):
     #assert flow.validate_json_schema()
 
 
+# TODO
 #def itest_bse_with_mdf(fwp, tvars):
 #    pseudos = abidata.pseudos("14si.pspnc")
 #    structure = abilab.Structure.from_file(abidata.cif_file("si.cif"))

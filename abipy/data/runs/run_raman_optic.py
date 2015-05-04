@@ -12,7 +12,7 @@ import numpy as np
 import abipy.abilab as abilab
 import abipy.data as data  
 
-optic_input = """\
+"""
 0.002         ! Value of the smearing factor, in Hartree
 0.0003  0.3   ! Difference between frequency values (in Hartree), and maximum frequency ( 1 Ha is about 27.211 eV)
 0.000         ! Scissor shift if needed, in Hartree
@@ -23,6 +23,18 @@ optic_input = """\
       ! Non-linear coefficients to be computed
 """
 
+optic_input = abilab.OpticInput(
+    zcut=0.002,
+    wmesh=(0.0003,  0.3),
+    scissor=0.000,
+    sing_tol=0.002,
+    num_lin_comp=6,
+    lin_comp=(11, 12, 13, 22, 23, 33),
+    num_nonlin_comp=0
+    #nonlin_comp=(123, 222),
+    )
+
+print(optic_input)
 
 global_vars = dict(
     istwfk="*1",
@@ -74,10 +86,7 @@ def raman_flow(options):
         workdir = os.path.basename(__file__).replace(".py", "").replace("run_","flow_") 
     #workdir = os.path.join(os.path.dirname(__file__), base_structure.formula.replace(" ","") + "_RAMAN")
 
-    # Instantiate the TaskManager.
-    manager = abilab.TaskManager.from_user_config() if not options.manager else \
-              abilab.TaskManager.from_file(options.manager)
-
+    manager = options.manager
     shell_manager = manager.to_shell_manager(mpi_procs=1)
     ddk_manager = manager.deepcopy()
 
@@ -90,29 +99,28 @@ def raman_flow(options):
 
     for structure, eta in zip(displaced_structures, etas):
         for ishift,shift in enumerate(all_shifts):
-            flow.register_work(raman_work(structure, pseudos, ngkpt, shift, ddk_manager, shell_manager),workdir="eta_"+str(eta)+"shift_"+str(ishift))
+            flow.register_work(raman_work(structure, pseudos, ngkpt, shift, ddk_manager, shell_manager),
+                               workdir="eta_" +str(eta) + "shift_" + str(ishift))
 
-    return flow.allocate()
+    return flow
 
 
 def raman_work(structure, pseudos, ngkpt, shiftk, ddk_manager, shell_manager):
     # Generate 3 different input files for computing optical properties with BSE.
 
-    inp = abilab.AbiInput(pseudos=pseudos, ndtset=5)
-
-    inp.set_structure(structure)
-    inp.set_vars(**global_vars)
-    inp.set_kmesh(ngkpt=ngkpt, shiftk=shiftk)
+    multi = abilab.MultiDataset(structure, pseudos=pseudos, ndtset=5)
+    multi.set_vars(global_vars)
+    multi.set_kmesh(ngkpt=ngkpt, shiftk=shiftk)
 
     # GS run
-    inp[1].set_vars(
+    multi[0].set_vars(
         tolvrs=1e+8,
         nband=59,
     )
 
     # NSCF run
-    inp[2].set_vars(
-        iscf=-2,
+    multi[1].set_vars(
+       iscf=-2,
        nband=100,
        kptopt=1,
        tolwfr=1.e+12,
@@ -126,7 +134,7 @@ def raman_work(structure, pseudos, ngkpt, shiftk, ddk_manager, shell_manager):
         rfdir = 3 * [0]
         rfdir[dir] = 1
 
-        inp[3+dir].set_vars(
+        multi[2+dir].set_vars(
            iscf=-3,
 	       nband=100,
            nstep=1,
@@ -140,7 +148,7 @@ def raman_work(structure, pseudos, ngkpt, shiftk, ddk_manager, shell_manager):
            tolwfr=1.e+12,
         )
 
-    scf_inp, nscf_inp, ddk1, ddk2, ddk3 = inp.split_datasets()
+    scf_inp, nscf_inp, ddk1, ddk2, ddk3 = multi.split_datasets()
     ddk_inputs = [ddk1, ddk2, ddk3]
 
     work = abilab.Work()
@@ -165,7 +173,8 @@ def main(options):
     # Define the flow, build files and dirs 
     # and save the object in cpickle format.
     flow = raman_flow(options)
-    return flow.build_and_pickle_dump()
+    flow.build_and_pickle_dump()
+    return flow
 
 
 if __name__ == "__main__":
